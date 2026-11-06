@@ -1,0 +1,48 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import 'bootstrap-icons/font/bootstrap-icons.css';
+
+:root {
+  --fn-ink: #1c2321;
+  --fn-paper: #f6f4ef;
+  --fn-accent: #2f6f5e;
+  --fn-muted: #6b716e;
+}
+
+body {
+  background: var(--fn-paper);
+  color: var(--fn-ink);
+}
+
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 1.5rem 16px 4rem;
+}
+
+.btn-primary {
+  --bs-btn-bg: var(--fn-accent);
+  --bs-btn-border-color: var(--fn-accent);
+  --bs-btn-hover-bg: #255a4c;
+  --bs-btn-hover-border-color: #255a4c;
+}
+
+.card {
+  border: 1px solid #e3e0d8;
+  border-radius: 12px;
+}
+
+.muted {
+  color: var(--fn-muted);
+}
+
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85em;
+  word-break: break-all;
+}
+
+.timeline li {
+  border-left: 2px solid var(--fn-accent);
+  padding: 0 0 0.75rem 0.75rem;
+  list-style: none;
+}
