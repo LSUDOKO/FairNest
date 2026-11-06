@@ -6,3 +6,5 @@ node_modules/
 !.env.example
 near-hackathon-prompt-examples*/
 *.tsbuildinfo
+.playwright-mcp/
+frontend/AGENTS.md

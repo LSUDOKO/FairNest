@@ -118,7 +118,7 @@ Prerequisites: Path A plus the `near` CLI:
 2. Optional: `cp .env.example .env.local`. The defaults point at the FairNest testnet deployment below.
    To use your own deployment, put the ids printed by `deploy.sh` there.
 3. `npm run dev`, open http://localhost:3000.
-4. Use three testnet wallets (any wallet in the connector, for example MyNearWallet or Meteor):
+4. Use three testnet wallets (any wallet in the connector, for example Meteor or Intear; switch the wallet to testnet):
    1. As the **landlord**: click "New lease", enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.
    2. As the **tenant**: on the home page click "Get 1000 test tUSDC" (twice for a 1500 deposit), open the lease by id, click "Deposit". See status `Funded`.
    3. As the **landlord**, after the lease end time: add deduction lines, optionally fingerprint a photo (its sha256 is shown and stored), click "File claim". See status `Claimed` and a countdown.
