@@ -12,7 +12,7 @@ export default function NewLease() {
   const { signedAccountId, callFunction } = useNearWallet();
   const router = useRouter();
   const tx = useTx();
-  const [f, setF] = useState({
+  const [f, setF] = useState(() => ({
     tenant: '',
     arbiter: '',
     currency: 'tusdc',
@@ -22,7 +22,7 @@ export default function NewLease() {
     responseMin: '3',
     arbiterMin: '3',
     terms: '',
-  });
+  }));
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setF({ ...f, [k]: e.target.value });
   const token = f.currency === 'tusdc' ? TokenId : null;
   const mins = (m: string) => String(Math.max(1, Math.round(Number(m) * 60)));

@@ -28,10 +28,16 @@ export default function LeasePage() {
   const [reason, setReason] = useState('');
   const [award, setAward] = useState('');
 
-  const load = useCallback(async () => {
-    setLease((await viewFunction({ contractId: ContractId, method: 'get_lease', args: { lease_id: id } })) as Lease | null);
-  }, [id, viewFunction]);
-  useEffect(() => { void load(); }, [load]);
+  const fetchLease = useCallback(
+    async () => (await viewFunction({ contractId: ContractId, method: 'get_lease', args: { lease_id: id } })) as Lease | null,
+    [id, viewFunction],
+  );
+  const load = () => void fetchLease().then(setLease);
+  useEffect(() => {
+    let live = true;
+    fetchLease().then((l) => live && setLease(l)).catch(() => live && setLease(null));
+    return () => { live = false; };
+  }, [fetchLease]);
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const tx = useTx(load);
 

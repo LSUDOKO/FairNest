@@ -14,18 +14,30 @@ export default function Home() {
   const [lookup, setLookup] = useState('');
   const router = useRouter();
 
-  const load = useCallback(async () => {
-    if (!signedAccountId) return;
+  const fetchAll = useCallback(async () => {
+    if (!signedAccountId) return null;
     const [l, n, t] = await Promise.all([
       viewFunction({ contractId: ContractId, method: 'get_leases_for', args: { account_id: signedAccountId } }),
       viewFunction({ contractId: ContractId, method: 'get_balance', args: { account_id: signedAccountId, token: null } }),
       viewFunction({ contractId: ContractId, method: 'get_balance', args: { account_id: signedAccountId, token: TokenId } }),
     ]);
-    setLeases((l as Lease[]).reverse());
-    setBalances({ near: n as string, tusdc: t as string });
+    return { leases: (l as Lease[]).reverse(), near: n as string, tusdc: t as string };
   }, [signedAccountId, viewFunction]);
 
-  useEffect(() => { void load(); }, [load]);
+  const apply = (d: Awaited<ReturnType<typeof fetchAll>>) => {
+    if (!d) return;
+    setLeases(d.leases);
+    setBalances({ near: d.near, tusdc: d.tusdc });
+  };
+  const load = () => void fetchAll().then(apply);
+
+  useEffect(() => {
+    let live = true;
+    fetchAll().then((d) => {
+      if (live && d) { setLeases(d.leases); setBalances({ near: d.near, tusdc: d.tusdc }); }
+    }).catch(console.error);
+    return () => { live = false; };
+  }, [fetchAll]);
   const tx = useTx(load);
 
   const withdraw = (token: string | null) =>
