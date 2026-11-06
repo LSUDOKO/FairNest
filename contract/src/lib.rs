@@ -22,6 +22,10 @@ use near_sdk::{
 pub const STORAGE_DEPOSIT: NearToken = NearToken::from_millinear(100);
 pub const MAX_LINES: usize = 10;
 pub const MAX_TEXT: usize = 300;
+/// No deadline may exceed a year, so nobody can stall a deposit indefinitely.
+pub const MAX_WINDOW: u64 = 365 * 24 * 3600;
+/// Lease end must be within 10 years, which keeps every deadline sum far from u64 overflow.
+pub const MAX_LEASE_END: u64 = 10 * 365 * 24 * 3600;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 
@@ -139,10 +143,10 @@ impl Contract {
         require!(amount.0 > 0, "deposit amount must be > 0");
         require!(tenant != landlord, "tenant cannot be the landlord");
         require!(arbiter != landlord && arbiter != tenant, "arbiter must be a third party");
-        require!(
-            claim_window.0 > 0 && response_window.0 > 0 && arbiter_window.0 > 0,
-            "windows must be > 0"
-        );
+        for w in [claim_window.0, response_window.0, arbiter_window.0] {
+            require!(w > 0 && w <= MAX_WINDOW, "each window must be 1 second to 365 days");
+        }
+        require!(lease_end.0 <= now() + MAX_LEASE_END, "lease end must be within 10 years");
         short(&terms, "terms");
 
         let id = self.leases.len() as u64;

@@ -5,8 +5,7 @@ landlord's bank account. At move-out the landlord itemises deductions with evide
 or disputes them line by line, and a neutral arbiter rules only on the disputed lines. Deadlines in the
 contract stop either side from sitting on the money.
 
-Built at NEAR HACKATHON (Nov 2026). Tracks: Real-World Money (`realworld`), Social Money (`social`),
-Open Innovation (`open`).
+Built at NEAR HACKATHON (Nov 2026). Tracks: Real-World Money (`realworld`), Open Innovation (`open`).
 
 ## The problem
 
@@ -47,7 +46,8 @@ Deadlines (per lease, in seconds, so the demo can use minutes):
 
 - The contract (`contract/src/lib.rs`, near-sdk-rs 5.30) is the custodian. Nobody, including us, can move a deposit outside the rules above.
 - Deposits can be native NEAR or any NEP-141 token. The demo uses tUSDC, a 6-decimal test stablecoin with a public faucet (`test-token/`), because there is no official testnet USDC.
-- Named accounts make the parties readable (`alice.testnet` vs `bob.testnet`). The arbiter is just an account id, so it can be a Sputnik DAO: the DAO votes on a function-call proposal to `resolve`, and a community or tenants' union becomes the arbiter without any new multisig code.
+- Named accounts make the parties readable (`alice.testnet` vs `bob.testnet`).
+- The arbiter is just an account id. In principle it can be a Sputnik DAO that votes on a function-call proposal to `resolve`, so a community or tenants' union becomes the arbiter without new multisig code. This is not demonstrated in this repo yet.
 - Every state change is stored in the lease's on-chain `history` and emitted as a NEP-297 event (`EVENT_JSON:{"standard":"fairnest",...}`), so the timeline needs no indexer.
 - The web app signs non-payable calls (claim, accept, dispute, resolve, finalize, withdraw) with a scoped function-call key limited to this contract, so most steps need no wallet popup.
 
@@ -56,13 +56,17 @@ Deadlines (per lease, in seconds, so the demo can use minutes):
 - **Pull payments.** Settlement only credits balances; `withdraw` sends the tokens. If a transfer fails (for example the receiver is not registered on the token contract) a callback restores the balance. Funds cannot get lost in a failed promise.
 - `ft_on_transfer` checks the calling token contract against the lease's token, per the NEAR docs' guidance; any failure refunds the tenant through the token's resolver.
 - Input sizes are capped (10 lines, 300 bytes per text field) so the flat 0.1 NEAR storage deposit always covers the record.
+- Each deadline window is capped at 365 days and the lease end at 10 years, so no lease can be set up to stall forever or overflow its deadline arithmetic.
 
 ## Try it
 
 ### Path A: local sandbox, no account or funds needed (about 5 minutes, mostly compile time)
 
-Prerequisites: Rust (the repo pins 1.97.1 in `rust-toolchain.toml`) and `cargo-near`
-(`cargo install cargo-near --locked`; on GCC 16 systems prefix it with `CC=clang CXX=clang++`).
+Prerequisites: Rust (the repo pins 1.97.1 in `rust-toolchain.toml`) and `cargo-near`. The quickest
+install is the official prebuilt binary from the NEAR docs:
+`curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh`.
+Fallback: `cargo install cargo-near --locked` (about 15 minutes; on GCC 16 systems prefix it with
+`CC=clang CXX=clang++`).
 The first run downloads a local NEAR sandbox node and takes a few minutes; the four tests run in about 3 minutes.
 
 1. `cd contract && cargo test -- --nocapture`
@@ -70,11 +74,13 @@ The first run downloads a local NEAR sandbox node and takes a few minutes; the f
    - `happy_path_native_near`: 5 NEAR deposit, 1.5 NEAR claim accepted, tenant withdraws 3.5 NEAR.
    - `partial_dispute_with_token_and_arbiter`: 1000 tUSDC deposit, landlord claims 100 + 300, tenant disputes the 300, 100 and 600 pay out at once, arbiter awards 100 of the 300. The landlord's first withdraw fails because they are not registered on the token, and the balance is restored; after `storage_deposit` the withdraw succeeds.
    - `timeouts_protect_both_sides`: each of the three deadlines settles the lease the way listed above.
-   - `guards_reject_bad_input`: wrong funder, wrong amount, wrong token (refunded), early claim and over-deposit claim are all rejected.
+   - `guards_reject_bad_input`: wrong funder, wrong amount, wrong token (refunded), early claim, over-deposit claim and deadline windows above 365 days are all rejected.
 
 ### Path B: testnet from the command line
 
-Prerequisites: Path A plus `near` CLI (`npm install -g near-cli-rs`).
+Prerequisites: Path A plus the `near` CLI:
+`curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/near-cli-rs/releases/latest/download/near-cli-rs-installer.sh | sh`
+(or `npm install -g near-cli-rs`).
 
 1. `PREFIX=<unique-name> ./scripts/deploy.sh` creates five faucet-funded testnet accounts (`<prefix>-escrow`, `-tusdc`, `-landlord`, `-tenant`, `-arbiter`), builds and deploys both contracts. Keys go to `~/.near-credentials`.
 2. `PREFIX=<unique-name> ./scripts/demo.sh` runs one full dispute: 1500 tUSDC deposit, 200 + 400 claim, carpet disputed, arbiter awards 100.
@@ -83,7 +89,9 @@ Prerequisites: Path A plus `near` CLI (`npm install -g near-cli-rs`).
 ### Path C: the web app
 
 1. `cd frontend && npm install`
-2. Optional: `cp .env.example .env.local` and set the contract ids printed by `deploy.sh`. Without it, the app uses the FairNest deployment `fairnest-escrow.testnet` / `fairnest-tusdc.testnet`.
+2. `cp .env.example .env.local`. The defaults point at the FairNest testnet deployment
+   (`fairnest-escrow.testnet` / `fairnest-tusdc.testnet`, **not deployed yet: this line is updated once
+   `deploy.sh` has run**). To use your own deployment, put the ids printed by `deploy.sh` there.
 3. `npm run dev`, open http://localhost:3000.
 4. Use three testnet wallets (any wallet in the connector, for example MyNearWallet or Meteor):
    1. As the **landlord**: click "New lease", enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.

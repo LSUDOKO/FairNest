@@ -4,13 +4,13 @@
 source "$(dirname "$0")/common.sh"
 U=000000   # tUSDC has 6 decimals
 
-now=$(date +%s)
+# Lease "ended" a minute ago, so block time is past it even if the local clock runs ahead.
+end=$(( $(date +%s) - 60 ))
+ID=$(view "$ESCROW" lease_count '{}' | grep -o '"[0-9]*"' | tail -1 | tr -d '"')
 echo "== 1. landlord creates a 1500 tUSDC lease that ends now"
 call "$LANDLORD" "$ESCROW" create_lease "{\"tenant\":\"$TENANT\",\"arbiter\":\"$ARBITER\",\"token\":\"$TOKEN\",
-  \"amount\":\"1500$U\",\"lease_end\":\"$now\",\"claim_window\":\"600\",\"response_window\":\"600\",\"arbiter_window\":\"600\",
+  \"amount\":\"1500$U\",\"lease_end\":\"$end\",\"claim_window\":\"600\",\"response_window\":\"600\",\"arbiter_window\":\"600\",
   \"terms\":\"Demo: 12 months, 1 Main St, Apt 4\"}" '0.1 NEAR'
-ID=$(view "$ESCROW" lease_count '{}' | grep -o '"[0-9]*"' | tail -1 | tr -d '"')
-ID=$((ID - 1))
 echo "lease id: $ID"
 
 echo "== 2. tenant gets test tUSDC from the faucet and locks the deposit"

@@ -260,5 +260,16 @@ async fn guards_reject_bad_input() -> R {
         json!({ "lease_id": id.to_string(), "lines": [line("x", d.as_yoctonear() + 1)] })).await?;
     assert!(r.is_failure(), "claim above deposit");
     println!("guards: early claim and over-deposit claim rejected");
+
+    // Deadlines longer than a year would let one side stall the deposit forever.
+    let r = w.landlord.call(w.escrow.id(), "create_lease")
+        .args_json(json!({
+            "tenant": w.tenant.id(), "arbiter": w.arbiter.id(), "token": null, "amount": "1",
+            "lease_end": now_secs(&w).await?.to_string(), "claim_window": u64::MAX.to_string(),
+            "response_window": "60", "arbiter_window": "60", "terms": ""
+        }))
+        .deposit(NearToken::from_millinear(100)).transact().await?;
+    assert!(r.is_failure(), "unbounded window must be rejected");
+    println!("guards: deadline windows above 365 days rejected");
     Ok(())
 }
