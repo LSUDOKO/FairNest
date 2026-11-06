@@ -58,6 +58,32 @@ Deadlines (per lease, in seconds, so the demo can use minutes):
 - Input sizes are capped (10 lines, 300 bytes per text field) so the flat 0.1 NEAR storage deposit always covers the record.
 - Each deadline window is capped at 365 days and the lease end at 10 years, so no lease can be set up to stall forever or overflow its deadline arithmetic.
 
+## Live testnet deployment
+
+| What | Account |
+| --- | --- |
+| Escrow contract | [`fairnest-escrow.testnet`](https://testnet.nearblocks.io/address/fairnest-escrow.testnet) |
+| tUSDC test token (public `mint`) | [`fairnest-tusdc.testnet`](https://testnet.nearblocks.io/address/fairnest-tusdc.testnet) |
+| Demo landlord / tenant / arbiter | `fairnest-landlord.testnet`, `fairnest-tenant.testnet`, `fairnest-arbiter.testnet` |
+
+Lease `0` is a finished dispute run by `scripts/demo.sh`. Check it without installing anything:
+
+```sh
+curl -s https://rpc.testnet.near.org -H 'Content-Type: application/json' -d '{"jsonrpc":"2.0","id":1,"method":"query","params":{"request_type":"call_function","finality":"final","account_id":"fairnest-escrow.testnet","method_name":"get_lease","args_base64":"eyJsZWFzZV9pZCI6IjAifQ=="}}' | python3 -c 'import sys,json;print(bytes(json.load(sys.stdin)["result"]["result"]).decode())'
+```
+
+You should see `"status":"Settled"`, `"to_landlord":"300000000"` and `"to_tenant":"1200000000"` (300 and 1200 tUSDC).
+
+| Step | Transaction |
+| --- | --- |
+| Landlord creates a 1500 tUSDC lease | [4K9AKih2...](https://testnet.nearblocks.io/txns/4K9AKih2vrEjW9bkTYemsi6CvN44ANSP13FbtCQuKavn) |
+| Tenant locks the deposit (`ft_transfer_call`) | [BebqDpKU...](https://testnet.nearblocks.io/txns/BebqDpKUyVBAzazvf6iMqXsEorpJwvfQ3PTxxUdNnoUa) |
+| Landlord claims 200 cleaning + 400 carpet | [4ZQQfyid...](https://testnet.nearblocks.io/txns/4ZQQfyidip8Nmydn1BRr55i72c36VxV2e1jALCUZd9HY) |
+| Tenant disputes the carpet line only | [8sRkyPM2...](https://testnet.nearblocks.io/txns/8sRkyPM25xUFU8X47sGAGvFcArByxWFFpLRvbE9PiFw) |
+| Arbiter awards 100 of the 400 to the landlord | [34Yj2Ucg...](https://testnet.nearblocks.io/txns/34Yj2UcgTW46qfFm5rV8L6pY5ErTBjndWjfuzAQY4KLq) |
+| Tenant withdraws 1200 tUSDC | [Hq8Josgt...](https://testnet.nearblocks.io/txns/Hq8Josgt7tZofRPYb3Tq1bQc1zVXPEnScCUnFvQmyQr7) |
+| Landlord withdraws 300 tUSDC | [j5zKqi4P...](https://testnet.nearblocks.io/txns/j5zKqi4P8P6cMkYmkm8DtsQjqNB8kCYjGdM1tLfb93D) |
+
 ## Try it
 
 ### Path A: local sandbox, no account or funds needed (about 5 minutes, mostly compile time)
@@ -89,9 +115,8 @@ Prerequisites: Path A plus the `near` CLI:
 ### Path C: the web app
 
 1. `cd frontend && npm install`
-2. `cp .env.example .env.local`. The defaults point at the FairNest testnet deployment
-   (`fairnest-escrow.testnet` / `fairnest-tusdc.testnet`, **not deployed yet: this line is updated once
-   `deploy.sh` has run**). To use your own deployment, put the ids printed by `deploy.sh` there.
+2. Optional: `cp .env.example .env.local`. The defaults point at the FairNest testnet deployment below.
+   To use your own deployment, put the ids printed by `deploy.sh` there.
 3. `npm run dev`, open http://localhost:3000.
 4. Use three testnet wallets (any wallet in the connector, for example MyNearWallet or Meteor):
    1. As the **landlord**: click "New lease", enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.
