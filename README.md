@@ -62,7 +62,8 @@ Deadlines (per lease, in seconds, so the demo can use minutes):
 ### Path A: local sandbox, no account or funds needed (about 5 minutes, mostly compile time)
 
 Prerequisites: Rust (the repo pins 1.97.1 in `rust-toolchain.toml`) and `cargo-near`
-(`cargo install cargo-near --locked`).
+(`cargo install cargo-near --locked`; on GCC 16 systems prefix it with `CC=clang CXX=clang++`).
+The first run downloads a local NEAR sandbox node and takes a few minutes; the four tests run in about 3 minutes.
 
 1. `cd contract && cargo test -- --nocapture`
 2. See four tests pass. Each prints the steps it runs:

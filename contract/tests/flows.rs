@@ -161,7 +161,7 @@ async fn partial_dispute_with_token_and_arbiter() -> R {
     println!("5. arbiter split the 300: landlord 200 total, tenant 800 total");
 
     // Landlord never registered with the token: the transfer fails and the balance comes back.
-    call(&w.landlord, &w, "withdraw", json!({ "token": tid })).await?;
+    let _failed_on_purpose = call(&w.landlord, &w, "withdraw", json!({ "token": tid })).await?;
     assert_eq!(balance(&w, &w.landlord, Some(tid)).await?, 200 * TUSDC);
     println!("6. landlord withdraw failed (not registered on token), balance restored");
     w.landlord.call(t.id(), "storage_deposit").args_json(json!({}))
@@ -200,7 +200,7 @@ async fn timeouts_protect_both_sides() -> R {
     fund(b).await?.into_result()?;
     call(&w.landlord, &w, "file_claim",
         json!({ "lease_id": b.to_string(), "lines": [line("Oven", 1000)] })).await?.into_result()?;
-    // shrink: response window for b is 600s, so fast forward past it
+    // b uses a 600s response window; fast-forward sandbox time past it.
     wait(&w, 600).await?;
     call(&w.arbiter, &w, "finalize", json!({ "lease_id": b.to_string() })).await?.into_result()?;
     assert_eq!(balance(&w, &w.landlord, None).await?, 1000);
@@ -240,7 +240,7 @@ async fn guards_reject_bad_input() -> R {
     w.tenant.call(t.id(), "mint").args_json(json!({ "amount": "1000" })).transact().await?.into_result()?;
     w.escrow.as_account().call(t.id(), "storage_deposit").args_json(json!({}))
         .deposit(NearToken::from_millinear(10)).transact().await?.into_result()?;
-    w.tenant.call(t.id(), "ft_transfer_call")
+    let _refunded = w.tenant.call(t.id(), "ft_transfer_call")
         .args_json(json!({ "receiver_id": w.escrow.id(), "amount": "1000", "msg": id.to_string() }))
         .deposit(NearToken::from_yoctonear(1)).max_gas().transact().await?;
     let back: String = t.view("ft_balance_of").args_json(json!({ "account_id": w.tenant.id() })).await?.json()?;
