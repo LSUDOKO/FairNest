@@ -1,3 +1,4 @@
+'use client';
 import {
   createContext,
   type PropsWithChildren,
@@ -8,15 +9,8 @@ import {
   useRef,
   useState,
 } from 'react';
-import {
-  FailoverRpcProvider,
-  getTransactionLastResult,
-  JsonRpcProvider,
-  nearToYocto,
-} from 'near-api-js';
-import { NearConnector, type EventMap, type NearConnectorOptions } from '@hot-labs/near-connect';
-import { createAccessKeyPlugin } from 'function-call-key-plugin';
-
+import { FailoverRpcProvider, getTransactionLastResult, JsonRpcProvider, nearToYocto } from 'near-api-js';
+import type { EventMap, NearConnector, NearConnectorOptions } from '@hot-labs/near-connect';
 import { ContractId, NetworkId } from '@/config';
 
 type ViewFunctionParams = {
@@ -50,103 +44,95 @@ const connectorOptions: NearConnectorOptions = {
 };
 
 export function NearProvider({ children }: PropsWithChildren) {
-  const connector = useMemo(() => new NearConnector(connectorOptions), []);
-  const accessKeyPlugin = useMemo(
-    () =>
-      createAccessKeyPlugin({
-        network: connector.network,
-        providers: connector.providers,
-        signIn: {
-          contractId: ContractId,
-          // Non-payable calls are signed locally with a scoped function-call key (no wallet popup).
-          methodNames: ['file_claim', 'accept', 'dispute', 'resolve', 'finalize', 'withdraw', 'cancel', 'release_full'],
-          allowance: nearToYocto('0.25').toString(),
-        },
-      }),
-    [connector],
-  );
+  // Read-only RPC works on the server and before any wallet code loads.
   const provider = useMemo(
-    () => {
-      const rpcUrls: string[] =
-        NetworkId === 'mainnet' ? connector.providers.mainnet ?? [] : connector.providers.testnet ?? [];
-      return new FailoverRpcProvider(rpcUrls.map((url) => new JsonRpcProvider({ url })));
-    },
-    [connector],
+    () => new FailoverRpcProvider((connectorOptions.providers?.[NetworkId] ?? []).map((url) => new JsonRpcProvider({ url }))),
+    [],
   );
 
   const [wallet, setWallet] = useState<Awaited<ReturnType<NearConnector['wallet']>> | undefined>();
   const [signedAccountId, setSignedAccountId] = useState('');
   const [loading, setLoading] = useState(true);
-  const pluginReady = useRef<Promise<void> | undefined>(undefined);
+  // Wallet libraries need browser APIs, so they load after hydration.
+  const ready = useRef<Promise<NearConnector> | undefined>(undefined);
 
   useEffect(() => {
     let cancelled = false;
+    let cleanup: (() => void) | undefined;
 
     const initialize = async () => {
-      pluginReady.current ??= connector.use(accessKeyPlugin);
-      await pluginReady.current;
-
-      const connectedWallet = await connector.getConnectedWallet().catch(() => null);
-      if (!cancelled && connectedWallet) {
-        setWallet(connectedWallet.wallet);
-        setSignedAccountId(connectedWallet.accounts[0]?.accountId ?? '');
-      }
-      if (cancelled) return undefined;
-
-      const handleSignIn = (payload: EventMap['wallet:signIn']) => {
-        if (!cancelled) {
-          setWallet(payload.wallet);
-          setSignedAccountId(payload.accounts[0]?.accountId ?? '');
-        }
-      };
-      const handleSignOut = () => {
-        if (!cancelled) {
-          setWallet(undefined);
-          setSignedAccountId('');
-        }
-      };
-
-      connector.on('wallet:signIn', handleSignIn);
-      connector.on('wallet:signOut', handleSignOut);
-
-      if (!cancelled) {
-        setLoading(false);
-      }
-
-      return () => {
-        connector.off('wallet:signIn', handleSignIn);
-        connector.off('wallet:signOut', handleSignOut);
-      };
+      const [{ NearConnector }, { createAccessKeyPlugin }] = await Promise.all([
+        import('@hot-labs/near-connect'),
+        import('function-call-key-plugin'),
+      ]);
+      const connector = new NearConnector(connectorOptions);
+      await connector.use(
+        createAccessKeyPlugin({
+          network: connector.network,
+          providers: connector.providers,
+          signIn: {
+            contractId: ContractId,
+            // Non-payable calls are signed locally with a scoped function-call key (no wallet popup).
+            methodNames: ['file_claim', 'accept', 'dispute', 'resolve', 'finalize', 'withdraw', 'cancel', 'release_full'],
+            allowance: nearToYocto('0.25').toString(),
+          },
+        }),
+      );
+      return connector;
     };
 
-    let cleanup: (() => void) | undefined;
-    void initialize().then((removeListeners) => {
-      if (cancelled) removeListeners?.();
-      else cleanup = removeListeners;
-    }).catch((error) => {
-      console.error('Unable to initialize wallet', error);
-      if (!cancelled) setLoading(false);
-    });
+    ready.current ??= initialize();
+    void ready.current
+      .then(async (connector) => {
+        const connected = await connector.getConnectedWallet().catch(() => null);
+        if (cancelled) return;
+        if (connected) {
+          setWallet(connected.wallet);
+          setSignedAccountId(connected.accounts[0]?.accountId ?? '');
+        }
+        const onIn = (payload: EventMap['wallet:signIn']) => {
+          setWallet(payload.wallet);
+          setSignedAccountId(payload.accounts[0]?.accountId ?? '');
+        };
+        const onOut = () => {
+          setWallet(undefined);
+          setSignedAccountId('');
+        };
+        connector.on('wallet:signIn', onIn);
+        connector.on('wallet:signOut', onOut);
+        cleanup = () => {
+          connector.off('wallet:signIn', onIn);
+          connector.off('wallet:signOut', onOut);
+        };
+        setLoading(false);
+      })
+      .catch((error) => {
+        console.error('Unable to initialize wallet', error);
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
       cancelled = true;
       cleanup?.();
     };
-  }, [accessKeyPlugin, connector]);
+  }, []);
 
   const signIn = useCallback(async () => {
+    const connector = await ready.current;
+    if (!connector) return;
     const connectedWallet = await connector.connect();
     setWallet(connectedWallet);
     const accounts = await connectedWallet.getAccounts();
     setSignedAccountId(accounts[0]?.accountId ?? '');
-  }, [connector]);
+  }, []);
 
   const signOut = useCallback(async () => {
-    if (!wallet) return;
+    const connector = await ready.current;
+    if (!wallet || !connector) return;
     await connector.disconnect(wallet);
     setWallet(undefined);
     setSignedAccountId('');
-  }, [connector, wallet]);
+  }, [wallet]);
 
   const viewFunction = useCallback(
     ({ contractId, method, args = {} }: ViewFunctionParams) =>

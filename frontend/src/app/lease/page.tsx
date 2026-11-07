@@ -1,9 +1,11 @@
 'use client';
 import { Suspense, useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ContractId, ExplorerAccount } from '@/config';
 import { useNearWallet } from '@/providers/near-provider';
 import { useTx } from '@/components/tx';
+import { QuietField } from '@/components/field';
 import { claimTotal, countdown, deadline, decimals, fmt, fromUnits, nowSecs, sha256Hex, toCsv, toUnits, type Lease } from '@/lib';
 
 const STAGE_HELP: Record<string, string> = {
@@ -11,7 +13,7 @@ const STAGE_HELP: Record<string, string> = {
   Funded: 'Deposit is locked. After the lease ends the landlord can file deductions. If they file none before the deadline, anyone can refund the tenant in full.',
   Claimed: 'Landlord filed deductions. The tenant can accept, or dispute specific lines. If the tenant does nothing before the deadline, the claim stands.',
   Disputed: 'Undisputed lines are already paid out. The arbiter rules on the disputed lines. If the arbiter does nothing before the deadline, the disputed sum goes back to the tenant.',
-  Settled: 'Settled. Each side can withdraw their share from the home page.',
+  Settled: 'Settled. Each side can withdraw their share from the dashboard.',
   Cancelled: 'Cancelled by the landlord before it was funded.',
 };
 
@@ -24,7 +26,7 @@ export default function LeasePage() {
 
 function LeaseView() {
   const id = useSearchParams().get('id') ?? '';
-  const { signedAccountId: me, viewFunction, callFunction } = useNearWallet();
+  const { signedAccountId: me, loading, signIn, viewFunction, callFunction } = useNearWallet();
   const [lease, setLease] = useState<Lease | null | undefined>(undefined);
   const [, tick] = useState(0);
   const [lines, setLines] = useState<Draft[]>([{ ...emptyLine }]);
@@ -45,8 +47,20 @@ function LeaseView() {
   useEffect(() => { const t = setInterval(() => tick((x) => x + 1), 1000); return () => clearInterval(t); }, []);
   const tx = useTx(load);
 
-  if (lease === undefined) return <main><p className="mt-3">Loading lease #{id}...</p></main>;
-  if (lease === null) return <main><div className="alert alert-warning mt-3">No lease #{id} on {ContractId}.</div></main>;
+  if (lease === undefined || lease === null)
+    return (
+      <Shell>
+        <h1 className="page__title">Lease #{id || '?'}</h1>
+        {lease === undefined ? (
+          <p className="page__sub">Reading the lease from the chain…</p>
+        ) : (
+          <div className="empty" style={{ marginTop: 24 }}>
+            <p>There is no lease #{id} on {ContractId}. Check the number with the landlord.</p>
+            <Link href="/app" className="btn btn--sm">Back to dashboard</Link>
+          </div>
+        )}
+      </Shell>
+    );
 
   const dec = decimals(lease.token);
   const isL = me === lease.landlord, isT = me === lease.tenant, isA = me === lease.arbiter;
@@ -88,144 +102,230 @@ function LeaseView() {
   };
 
   const party = (label: string, acc: string, you: boolean) => (
-    <div className="col-sm-4">
-      <div className="small muted">{label}{you && ' (you)'}</div>
-      <a className="mono" href={ExplorerAccount(acc)} target="_blank" rel="noreferrer">{acc}</a>
+    <div className="kv">
+      <dt>{label}{you && <span className="you">you</span>}</dt>
+      <dd><a className="mono" href={ExplorerAccount(acc)} target="_blank" rel="noreferrer">{acc}</a></dd>
     </div>
   );
 
+  const order = ['Created', 'Funded', 'Claimed', 'Disputed', 'Settled'];
+  const reached = lease.history.map((e) => e.kind);
+  const stepState = (st: string, i: number) => {
+    if (lease.status === 'Cancelled') return i === 0 ? 'done' : 'skip';
+    const cur = order.indexOf(lease.status);
+    if (st === lease.status) return 'now';
+    if (st === 'Disputed' && cur > 3 && !reached.includes('disputed')) return 'skip';
+    if (st === 'Claimed' && cur > 2 && !reached.includes('claimed')) return 'skip';
+    return i < cur ? 'done' : 'todo';
+  };
+  const editLine = (i: number, patch: Partial<Draft>) => setLines(lines.map((x, j) => (j === i ? { ...x, ...patch } : x)));
+
   return (
-    <main>
-      <div className="d-flex justify-content-between align-items-start mt-3">
+    <Shell>
+      <div className="page__head">
         <div>
-          <h1 className="h4 mb-0">Lease #{lease.id}</h1>
-          <div className="muted">{lease.terms}</div>
+          <h1 className="page__title">Lease #{lease.id}</h1>
+          {lease.terms && <p className="page__sub">{lease.terms}</p>}
         </div>
-        <span className="badge text-bg-dark fs-6">{lease.status}</span>
+        <span className="status" data-s={lease.status}>{lease.status}</span>
       </div>
 
-      <div className="card p-3 my-3">
-        <div className="row g-2 mb-2">
-          {party('Landlord', lease.landlord, isL)}
-          {party('Tenant', lease.tenant, isT)}
-          {party('Arbiter', lease.arbiter, isA)}
-        </div>
-        <div className="fs-5">Deposit: <strong>{fmt(lease.amount, lease.token)}</strong></div>
-        <div className="small muted">Lease ends {new Date(Number(lease.lease_end) * 1000).toLocaleString()}</div>
-        <p className="mt-2 mb-0">{STAGE_HELP[lease.status]}</p>
-        {due !== null && (
-          <p className="mb-0">
-            Deadline: <strong>{new Date(due * 1000).toLocaleString()}</strong> ({countdown(due)})
-          </p>
-        )}
-        {(lease.status === 'Settled' || lease.status === 'Disputed') && (
-          <p className="mb-0">Paid so far: landlord {fmt(lease.to_landlord, lease.token)} · tenant {fmt(lease.to_tenant, lease.token)}</p>
-        )}
-      </div>
-
-      {/* ---------- actions ---------- */}
-      {!me && <div className="alert alert-light">Connect a wallet to act on this lease. Anyone can apply an expired deadline.</div>}
-
-      {lease.status === 'Created' && isT && (
-        <div className="card p-3 mb-3">
-          <h2 className="h6">Lock your deposit</h2>
-          <p className="small muted mb-2">The money goes to the contract, not the landlord. {lease.token && 'You need this token in your wallet; use "Get 1000 test tUSDC" on the home page.'}</p>
-          <button className="btn btn-primary" disabled={tx.busy} onClick={() => void fund()}>Deposit {fmt(lease.amount, lease.token)}</button>
-        </div>
-      )}
-      {lease.status === 'Created' && isL && (
-        <button className="btn btn-outline-danger mb-3" disabled={tx.busy} onClick={() => void call('cancel', {})}>Cancel unfunded lease</button>
-      )}
-
-      {lease.status === 'Funded' && isL && (
-        <div className="card p-3 mb-3">
-          <h2 className="h6">Move-out deductions</h2>
-          {!ended && <p className="small text-warning-emphasis">The lease has not ended yet; deductions open at the end date.</p>}
-          {lines.map((l, i) => (
-            <div key={i} className="border rounded p-2 mb-2">
-              <div className="row g-2">
-                <input className="form-control col" placeholder="Reason, e.g. broken window" value={l.reason} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, reason: e.target.value } : x)))} />
-                <input className="form-control col-3" placeholder="Amount" inputMode="decimal" value={l.amount} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, amount: e.target.value } : x)))} />
+      <div className="grid-2">
+        <div>
+          <section className="glass panel">
+            <ol className="stepper" aria-label="Lease progress">
+              {order.map((st, i) => <li key={st} data-state={stepState(st, i)}>{st}</li>)}
+            </ol>
+            <p style={{ marginTop: 16 }}>{STAGE_HELP[lease.status]}</p>
+            {due !== null && (
+              <div className="deadline" style={{ marginTop: 14 }}>
+                <span className="deadline__count">{countdown(due)}</span>
+                <span className="faint">deadline {new Date(due * 1000).toLocaleString()}</span>
               </div>
-              <input className="form-control mt-2" placeholder="Evidence link (photo, invoice)" value={l.evidence_url} onChange={(e) => setLines(lines.map((x, j) => (j === i ? { ...x, evidence_url: e.target.value } : x)))} />
-              <label className="small mt-2 d-block">Fingerprint the evidence file (stays on your device, only its sha256 goes on-chain):
-                <input type="file" className="form-control form-control-sm" onChange={async (e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-                  const h = await sha256Hex(file);
-                  setLines(lines.map((x, j) => (j === i ? { ...x, evidence_sha256: h } : x)));
-                }} />
-              </label>
-              {l.evidence_sha256 && <div className="mono small">sha256 {l.evidence_sha256}</div>}
-            </div>
-          ))}
-          <div className="d-flex gap-2">
-            <button className="btn btn-outline-secondary btn-sm" disabled={lines.length >= 10} onClick={() => setLines([...lines, { ...emptyLine }])}>Add line</button>
-            <button className="btn btn-primary btn-sm" disabled={tx.busy || !ended} onClick={() => void fileClaim()}>File claim</button>
-            <button className="btn btn-outline-success btn-sm ms-auto" disabled={tx.busy} onClick={() => void call('release_full', {})}>Return full deposit</button>
-          </div>
-        </div>
-      )}
-
-      {lease.claim.length > 0 && (
-        <div className="card p-3 mb-3">
-          <h2 className="h6">Claimed deductions: {fmt(claimTotal(lease).toString(), lease.token)}</h2>
-          <table className="table table-sm mb-2">
-            <tbody>
-              {lease.claim.map((l, i) => (
-                <tr key={i} className={lease.disputed.includes(i) ? 'table-warning' : ''}>
-                  {lease.status === 'Claimed' && isT && (
-                    <td><input type="checkbox" aria-label={`dispute line ${i + 1}`} checked={picked.includes(i)} onChange={(e) => setPicked(e.target.checked ? [...picked, i] : picked.filter((p) => p !== i))} /></td>
-                  )}
-                  <td>{l.reason}{lease.disputed.includes(i) && <span className="badge text-bg-warning ms-2">disputed</span>}</td>
-                  <td className="text-end">{fromUnits(l.amount, dec)}</td>
-                  <td>{l.evidence_url && <a href={l.evidence_url} target="_blank" rel="noreferrer">evidence</a>}{l.evidence_sha256 && <div className="mono small">{l.evidence_sha256.slice(0, 16)}...</div>}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          {lease.status === 'Claimed' && isT && (
-            <>
-              <input className="form-control mb-2" placeholder="Why you dispute the ticked lines (public)" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
-              <div className="d-flex gap-2">
-                <button className="btn btn-primary btn-sm" disabled={tx.busy} onClick={() => void call('accept', {})}>Accept all</button>
-                <button className="btn btn-warning btn-sm" disabled={tx.busy || picked.length === 0} onClick={() => void call('dispute', { lines: picked, reason })}>Dispute {picked.length} line(s)</button>
+            )}
+            {expired && (
+              <div className="actions" style={{ marginTop: 14 }}>
+                {me ? (
+                  <button className="btn btn--primary btn--sm" disabled={tx.busy} onClick={() => void call('finalize', {})}>Apply the passed deadline</button>
+                ) : (
+                  <span className="muted">The deadline has passed. Connect any wallet to apply it.</span>
+                )}
               </div>
-            </>
+            )}
+          </section>
+
+          {/* ---------- actions ---------- */}
+          {!me && (
+            <section className="glass panel">
+              <div className="empty">
+                <p>Connect the landlord, tenant or arbiter wallet to act on this lease. Anyone can read it.</p>
+                <button className="btn btn--primary btn--sm" disabled={loading} onClick={() => void signIn()}>Connect wallet</button>
+              </div>
+            </section>
           )}
+
+          {lease.status === 'Created' && isT && (
+            <section className="glass panel">
+              <h2>Lock your deposit</h2>
+              <p className="muted" style={{ margin: '8px 0 16px' }}>
+                The money goes to the contract, not to the landlord.{' '}
+                {lease.token && <>You need the token in your wallet. <Link href="/app">Get test tUSDC on the dashboard.</Link></>}
+              </p>
+              <button className="btn btn--primary" disabled={tx.busy} onClick={() => void fund()}>Deposit {fmt(lease.amount, lease.token)}</button>
+            </section>
+          )}
+          {lease.status === 'Created' && isL && (
+            <section className="glass panel">
+              <h2>Waiting for the tenant</h2>
+              <p className="muted" style={{ margin: '8px 0 16px' }}>Share lease number {lease.id} with your tenant. Until they deposit, you can cancel.</p>
+              <button className="btn btn--danger btn--sm" disabled={tx.busy} onClick={() => void call('cancel', {})}>Cancel this lease</button>
+            </section>
+          )}
+
+          {lease.status === 'Funded' && isL && (
+            <section className="glass panel form">
+              <div className="panel__head" style={{ marginBottom: 0 }}>
+                <h2>Move-out deductions</h2>
+                <button className="btn btn--sm" disabled={tx.busy} onClick={() => void call('release_full', {})}>Return the full deposit</button>
+              </div>
+              {!ended && <div className="notice notice--warn">The lease has not ended yet. Deductions open on {new Date(Number(lease.lease_end) * 1000).toLocaleString()}.</div>}
+              {lines.map((l, i) => (
+                <div key={i} className="line-edit">
+                  <div className="cols" style={{ ['--cols' as string]: 2, gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)' }}>
+                    <label className="field-label">Reason<input className="input" placeholder="Broken window" value={l.reason} onChange={(e) => editLine(i, { reason: e.target.value })} /></label>
+                    <label className="field-label">Amount<input className="input" inputMode="decimal" placeholder="0" value={l.amount} onChange={(e) => editLine(i, { amount: e.target.value })} /></label>
+                  </div>
+                  <label className="field-label">Evidence link <span className="hint">Photo or invoice anyone can open.</span>
+                    <input className="input" placeholder="https://" value={l.evidence_url} onChange={(e) => editLine(i, { evidence_url: e.target.value })} />
+                  </label>
+                  <label className="field-label">Fingerprint the file <span className="hint">The file stays on your device. Only its sha256 goes on-chain.</span>
+                    <input type="file" className="input" onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      if (file) editLine(i, { evidence_sha256: await sha256Hex(file) });
+                    }} />
+                  </label>
+                  {l.evidence_sha256 && <div className="mono faint">sha256 {l.evidence_sha256}</div>}
+                </div>
+              ))}
+              <div className="actions">
+                <button className="btn btn--sm" disabled={lines.length >= 10} onClick={() => setLines([...lines, { ...emptyLine }])}>Add a line</button>
+                <button className="btn btn--primary btn--sm push" disabled={tx.busy || !ended} onClick={() => void fileClaim()}>File {lines.length} deduction{lines.length > 1 ? 's' : ''}</button>
+              </div>
+            </section>
+          )}
+
+          {lease.claim.length > 0 && (
+            <section className="glass panel">
+              <div className="panel__head">
+                <h2>Deductions claimed</h2>
+                <span className="mono">{fmt(claimTotal(lease).toString(), lease.token)}</span>
+              </div>
+              <div className="claims">
+                {lease.claim.map((l, i) => {
+                  const pick = lease.status === 'Claimed' && isT;
+                  return (
+                    <label key={i} className="claim" data-disputed={lease.disputed.includes(i) || picked.includes(i)} style={{ cursor: pick ? 'pointer' : undefined }}>
+                      {pick ? (
+                        <input type="checkbox" className="check" checked={picked.includes(i)} onChange={(e) => setPicked(e.target.checked ? [...picked, i] : picked.filter((p) => p !== i))} />
+                      ) : <span />}
+                      <span>
+                        {l.reason}
+                        {lease.disputed.includes(i) && <span className="faint"> · disputed</span>}
+                        <span className="claim__ev">
+                          {l.evidence_url && <> · <a href={l.evidence_url} target="_blank" rel="noreferrer">evidence</a></>}
+                          {l.evidence_sha256 && <span className="mono"> · {l.evidence_sha256.slice(0, 12)}…</span>}
+                        </span>
+                      </span>
+                      <span className="claim__amt">{fromUnits(l.amount, dec)}</span>
+                    </label>
+                  );
+                })}
+              </div>
+              {lease.status === 'Claimed' && isT && (
+                <div className="form" style={{ marginTop: 16 }}>
+                  <p className="muted">Tick the lines you disagree with. Everything you leave unticked is paid to the landlord now.</p>
+                  <label className="field-label">Why you dispute them <span className="hint">Public, the arbiter reads this.</span>
+                    <input className="input" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
+                  </label>
+                  <div className="actions">
+                    <button className="btn btn--primary btn--sm" disabled={tx.busy || picked.length === 0} onClick={() => void call('dispute', { lines: picked, reason })}>
+                      Dispute {picked.length || ''} line{picked.length === 1 ? '' : 's'}
+                    </button>
+                    <button className="btn btn--sm" disabled={tx.busy} onClick={() => void call('accept', {})}>Accept all deductions</button>
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
+
+          {lease.status === 'Disputed' && isA && (
+            <section className="glass panel form">
+              <h2>Your ruling on {fmt(disputedSum.toString(), lease.token)}</h2>
+              <label className="field-label">Amount for the landlord <span className="hint">The rest goes back to the tenant.</span>
+                <input className="input" inputMode="decimal" placeholder={`0 to ${fromUnits(disputedSum.toString(), dec)}`} value={award} onChange={(e) => setAward(e.target.value)} />
+              </label>
+              <label className="field-label">Reasoning <span className="hint">Public.</span>
+                <input className="input" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
+              </label>
+              <div className="actions">
+                <button className="btn btn--primary btn--sm" disabled={tx.busy || !award} onClick={() => void call('resolve', { to_landlord: toUnits(award, dec), note: reason })}>Submit ruling</button>
+              </div>
+            </section>
+          )}
+          <div className="tx-status">{tx.status}</div>
         </div>
-      )}
 
-      {lease.status === 'Disputed' && isA && (
-        <div className="card p-3 mb-3">
-          <h2 className="h6">Your ruling on {fmt(disputedSum.toString(), lease.token)} in dispute</h2>
-          <label className="small">Amount awarded to the landlord (the rest returns to the tenant)
-            <input className="form-control" inputMode="decimal" placeholder={`0 to ${fromUnits(disputedSum.toString(), dec)}`} value={award} onChange={(e) => setAward(e.target.value)} />
-          </label>
-          <input className="form-control my-2" placeholder="Reasoning (public)" maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} />
-          <button className="btn btn-primary btn-sm" disabled={tx.busy || !award} onClick={() => void call('resolve', { to_landlord: toUnits(award, dec), note: reason })}>Submit ruling</button>
+        <div>
+          <section className="glass panel">
+            <div className="lease-card__amt">{fmt(lease.amount, lease.token)}</div>
+            <p className="faint" style={{ marginTop: 6 }}>Lease ends {new Date(Number(lease.lease_end) * 1000).toLocaleString()}</p>
+            {(lease.status === 'Settled' || lease.status === 'Disputed') && (
+              <div className="split" style={{ marginTop: 18 }}>
+                <div className="split__bar">
+                  <div className="split__l" style={{ width: `${(Number(lease.to_landlord) / Number(lease.amount)) * 100}%` }} />
+                  <div className="split__t" style={{ width: `${(Number(lease.to_tenant) / Number(lease.amount)) * 100}%` }} />
+                </div>
+                <div className="split__legend">
+                  <span><i className="swatch" style={{ background: 'var(--core)' }} />Landlord <b>{fmt(lease.to_landlord, lease.token)}</b></span>
+                  <span><i className="swatch" style={{ background: 'var(--glow)' }} />Tenant <b>{fmt(lease.to_tenant, lease.token)}</b></span>
+                </div>
+              </div>
+            )}
+            <dl className="parties" style={{ gridTemplateColumns: '1fr', marginTop: 22, marginBottom: 0 }}>
+              {party('Landlord', lease.landlord, isL)}
+              {party('Tenant', lease.tenant, isT)}
+              {party('Arbiter', lease.arbiter, isA)}
+            </dl>
+          </section>
+
+          <section className="glass panel">
+            <div className="panel__head">
+              <h2>On-chain record</h2>
+              <button className="btn btn--ghost btn--sm" onClick={downloadCsv}><i className="bi bi-download" aria-hidden="true" /> CSV</button>
+            </div>
+            <ol className="timeline">
+              {lease.history.map((e, i) => (
+                <li key={i}>
+                  <span className="timeline__kind">{e.kind.replace(/_/g, ' ')}</span>
+                  <div className="faint" style={{ fontSize: '0.82rem' }}>
+                    <span className="mono">{e.actor}</span> · {new Date(Number(e.ts) * 1000).toLocaleString()}
+                  </div>
+                  {e.note && <div className="muted" style={{ fontSize: '0.9rem' }}>{e.kind === 'funded' || e.kind === 'claimed' ? fmt(e.note, lease.token) : e.note}</div>}
+                </li>
+              ))}
+            </ol>
+          </section>
         </div>
-      )}
-
-      {expired && me && (
-        <button className="btn btn-outline-primary mb-3" disabled={tx.busy} onClick={() => void call('finalize', {})}>Deadline passed: apply it</button>
-      )}
-      {tx.status}
-
-      {/* ---------- timeline ---------- */}
-      <div className="d-flex justify-content-between align-items-center mt-3">
-        <h2 className="h6 mb-0">On-chain timeline</h2>
-        <button className="btn btn-link btn-sm" onClick={downloadCsv}><i className="bi bi-download" /> CSV for your records</button>
       </div>
-      <ul className="timeline ps-0 mt-2">
-        {lease.history.map((e, i) => (
-          <li key={i}>
-            <strong>{e.kind.replace(/_/g, ' ')}</strong> by <span className="mono">{e.actor}</span>
-            <span className="muted small"> · {new Date(Number(e.ts) * 1000).toLocaleString()}</span>
-            {e.note && <div className="small">{e.kind === 'funded' || e.kind === 'claimed' ? fmt(e.note, lease.token) : e.note}</div>}
-          </li>
-        ))}
-      </ul>
-    </main>
+    </Shell>
+  );
+}
+
+function Shell({ children }: { children: React.ReactNode }) {
+  return (
+    <>
+      <QuietField />
+      <main className="page"><div className="wrap">{children}</div></main>
+    </>
   );
 }

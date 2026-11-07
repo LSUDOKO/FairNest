@@ -124,13 +124,13 @@ Hosted: https://fairnest.adoranto737.workers.dev (skip to step 4). To run it loc
    To use your own deployment, put the ids printed by `deploy.sh` there.
 3. `npm run dev`, open http://localhost:3000. To host your own copy on Cloudflare: `npm run build && npx wrangler deploy` (static export in `out/`, config in `frontend/wrangler.jsonc`).
 4. Use three testnet wallets (any wallet in the connector, for example Meteor or Intear; switch the wallet to testnet):
-   1. As the **landlord**: click "New lease", enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.
-   2. As the **tenant**: on the home page click "Get 1000 test tUSDC" (twice for a 1500 deposit), open the lease by id, click "Deposit". See status `Funded`.
-   3. As the **landlord**, after the lease end time: add deduction lines, optionally fingerprint a photo (its sha256 is shown and stored), click "File claim". See status `Claimed` and a countdown.
-   4. As the **tenant**: tick one line, write a reason, click "Dispute". See status `Disputed` and "Paid so far" for the undisputed part.
+   1. As the **landlord**: click "Create a lease" (or "New lease" in the menu), enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.
+   2. As the **tenant**: on the Dashboard click "Get 1,000 tUSDC" (twice for a 1500 deposit), open the lease by its number, click "Deposit". See status `Funded`.
+   3. As the **landlord**, after the lease end time: add deduction lines, optionally fingerprint a photo (its sha256 is shown and stored), click "File N deductions". See status `Claimed` and a countdown.
+   4. As the **tenant**: tick one line, write a reason, click "Dispute 1 line". See status `Disputed` and the landlord/tenant split for the undisputed part.
    5. As the **arbiter**: enter the amount for the landlord, click "Submit ruling". See status `Settled`.
-   6. Each party: on the home page click "Withdraw tUSDC". See the success link to the transaction.
-   7. Or skip a step and wait for the deadline: the lease page shows "Deadline passed: apply it", and anyone can click it.
+   6. Each party: on the Dashboard click "Withdraw tUSDC". See the success link to the transaction.
+   7. Or skip a step and wait for the deadline: the lease page shows "Apply the passed deadline", and anyone can click it.
 5. "CSV for your records" on any lease downloads the timeline, deduction lines and final split.
 
 ## Failure cases

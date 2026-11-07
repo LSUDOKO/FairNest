@@ -24,10 +24,10 @@ export function useTx(onDone?: () => void) {
 
   const status = (
     <>
-      {error && <div className="alert alert-danger mt-2 mono" role="alert">{error}</div>}
+      {error && <div className="notice notice--err" role="alert"><strong>That did not go through.</strong> <span className="mono">{error}</span></div>}
       {hash && (
-        <div className="alert alert-success mt-2">
-          Done. <a href={ExplorerTx(hash)} target="_blank" rel="noreferrer">View transaction <i className="bi bi-box-arrow-up-right" /></a>
+        <div className="notice notice--ok" role="status">
+          Confirmed on-chain. <a href={ExplorerTx(hash)} target="_blank" rel="noreferrer">View transaction <i className="bi bi-box-arrow-up-right" aria-hidden="true" /></a>
         </div>
       )}
     </>
