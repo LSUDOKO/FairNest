@@ -290,7 +290,11 @@ p { margin: 0; }
 .step__who { font: 500 0.8rem/1 var(--font-mono); color: var(--text-3); }
 @media (max-width: 860px) {
   .explain { grid-template-columns: 1fr; }
-  .explain__stage { top: 78px; z-index: 2; }
+  .explain__stage { top: 76px; z-index: 2; }
+  /* Compact card on small screens so the active step stays visible below it */
+  .explain__stage .lease-card { padding: 16px 18px; gap: 12px; background: rgba(20, 19, 12, 0.82); }
+  .explain__stage .claims, .explain__stage .lease-card__note { display: none; }
+  .explain__stage .lease-card__amt { font-size: 1.6rem; }
   .step { min-height: 52vh; }
 }
 

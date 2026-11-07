@@ -232,7 +232,7 @@ function LeaseView() {
                         {l.reason}
                         {lease.disputed.includes(i) && <span className="faint"> · disputed</span>}
                         <span className="claim__ev">
-                          {l.evidence_url && <> · <a href={l.evidence_url} target="_blank" rel="noreferrer">evidence</a></>}
+                          {l.evidence_url && <> · <a href={l.evidence_url} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()}>evidence</a></>}
                           {l.evidence_sha256 && <span className="mono"> · {l.evidence_sha256.slice(0, 12)}…</span>}
                         </span>
                       </span>

@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { motion, useScroll, useTransform, type MotionValue } from 'motion/react';
+import { motion, useReducedMotion, useScroll, useTransform, type MotionValue } from 'motion/react';
 import { useEffect, useRef, useState } from 'react';
 import { ContractId, ExplorerAccount } from '@/config';
 import { Field } from '@/components/field';
@@ -87,11 +87,12 @@ function Problem() {
   const ref = useRef<HTMLParagraphElement>(null);
   const { scrollYProgress } = useScroll({ target: ref, offset: ['start 0.85', 'end 0.45'] });
   const words = PROBLEM.split(' ');
+  const still = useReducedMotion();
   return (
     <section className="section">
       <div className="wrap">
         <p ref={ref} className="reveal-text">
-          {words.map((w, i) => (
+          {still ? PROBLEM : words.map((w, i) => (
             <Word key={i} progress={scrollYProgress} range={[i / words.length, (i + 1) / words.length]}>{w}</Word>
           ))}
         </p>
@@ -182,9 +183,9 @@ function StageCard({ step }: { step: number }) {
       </div>
       <div>
         <div className="lease-card__amt">1,500 tUSDC</div>
-        <motion.div key={s.note} className="muted" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ marginTop: 6 }}>{s.note}</motion.div>
+        <motion.div key={s.note} className="muted lease-card__note" initial={{ opacity: 0 }} animate={{ opacity: 1 }} style={{ marginTop: 6 }}>{s.note}</motion.div>
       </div>
-      <motion.div layout className="claims" style={{ display: 'grid', gap: 8 }}>
+      <motion.div layout className="claims">
         {step >= 1 &&
           [['Repaint living room', 200], ['Replace carpet', 400]].map(([r, a], i) => (
             <motion.div
