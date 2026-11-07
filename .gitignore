@@ -8,3 +8,5 @@ near-hackathon-prompt-examples*/
 *.tsbuildinfo
 .playwright-mcp/
 frontend/AGENTS.md
+out/
+.wrangler/

@@ -65,7 +65,7 @@ export default function Home() {
         Contract <a className="mono" href={ExplorerAccount(ContractId)} target="_blank" rel="noreferrer">{ContractId}</a> on testnet
       </p>
 
-      <form className="input-group my-3" onSubmit={(e) => { e.preventDefault(); if (lookup) router.push(`/lease/${lookup}`); }}>
+      <form className="input-group my-3" onSubmit={(e) => { e.preventDefault(); if (lookup) router.push(`/lease?id=${lookup}`); }}>
         <input className="form-control" placeholder="Open a lease by id, e.g. 0" value={lookup} onChange={(e) => setLookup(e.target.value.replace(/\D/g, ''))} />
         <button className="btn btn-outline-secondary">Open</button>
       </form>
@@ -95,7 +95,7 @@ export default function Home() {
             {leases.map((l) => {
               const role = l.landlord === signedAccountId ? 'landlord' : l.tenant === signedAccountId ? 'tenant' : 'arbiter';
               return (
-                <Link key={l.id} href={`/lease/${l.id}`} className="list-group-item list-group-item-action d-flex justify-content-between">
+                <Link key={l.id} href={`/lease?id=${l.id}`} className="list-group-item list-group-item-action d-flex justify-content-between">
                   <span>#{l.id} · {l.terms || 'Lease'} <span className="badge text-bg-light ms-1">you: {role}</span></span>
                   <span>{fmt(l.amount, l.token)} <span className="badge text-bg-secondary ms-1">{l.status}</span></span>
                 </Link>

@@ -47,7 +47,7 @@ export default function NewLease() {
         deposit: '100000000000000000000000', // 0.1 NEAR storage deposit
         gas: '50000000000000',
       });
-      router.push(`/lease/${r.result as string}`);
+      router.push(`/lease?id=${r.result as string}`);
       return r;
     });
   };

@@ -1,0 +1,6 @@
+{
+  "$schema": "https://unpkg.com/wrangler@4.124.0/config-schema.json",
+  "name": "fairnest",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./out", "not_found_handling": "404-page" }
+}

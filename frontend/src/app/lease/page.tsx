@@ -1,6 +1,6 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { ContractId, ExplorerAccount } from '@/config';
 import { useNearWallet } from '@/providers/near-provider';
 import { useTx } from '@/components/tx';
@@ -19,7 +19,11 @@ type Draft = { reason: string; amount: string; evidence_url: string; evidence_sh
 const emptyLine: Draft = { reason: '', amount: '', evidence_url: '', evidence_sha256: '' };
 
 export default function LeasePage() {
-  const { id } = useParams<{ id: string }>();
+  return <Suspense><LeaseView /></Suspense>;
+}
+
+function LeaseView() {
+  const id = useSearchParams().get('id') ?? '';
   const { signedAccountId: me, viewFunction, callFunction } = useNearWallet();
   const [lease, setLease] = useState<Lease | null | undefined>(undefined);
   const [, tick] = useState(0);

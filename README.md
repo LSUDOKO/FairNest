@@ -5,6 +5,9 @@ landlord's bank account. At move-out the landlord itemises deductions with evide
 or disputes them line by line, and a neutral arbiter rules only on the disputed lines. Deadlines in the
 contract stop either side from sitting on the money.
 
+Live app (testnet): https://fairnest.adoranto737.workers.dev. Open the settled demo lease at
+https://fairnest.adoranto737.workers.dev/lease?id=0 (no wallet needed).
+
 Built at NEAR HACKATHON (Nov 2026). Tracks: Real-World Money (`realworld`), Open Innovation (`open`).
 
 ## The problem
@@ -114,10 +117,12 @@ Prerequisites: Path A plus the `near` CLI:
 
 ### Path C: the web app
 
+Hosted: https://fairnest.adoranto737.workers.dev (skip to step 4). To run it locally:
+
 1. `cd frontend && npm install`
 2. Optional: `cp .env.example .env.local`. The defaults point at the FairNest testnet deployment below.
    To use your own deployment, put the ids printed by `deploy.sh` there.
-3. `npm run dev`, open http://localhost:3000.
+3. `npm run dev`, open http://localhost:3000. To host your own copy on Cloudflare: `npm run build && npx wrangler deploy` (static export in `out/`, config in `frontend/wrangler.jsonc`).
 4. Use three testnet wallets (any wallet in the connector, for example Meteor or Intear; switch the wallet to testnet):
    1. As the **landlord**: click "New lease", enter the tenant and arbiter accounts, keep the 2-minute defaults. See the lease page with status `Created`.
    2. As the **tenant**: on the home page click "Get 1000 test tUSDC" (twice for a 1500 deposit), open the lease by id, click "Deposit". See status `Funded`.
