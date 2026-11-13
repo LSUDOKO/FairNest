@@ -1,10 +1,13 @@
 #!/usr/bin/env bash
-# Creates 5 faucet-funded testnet accounts, builds and deploys FairNest + tUSDC.
+# Creates the faucet-funded testnet accounts, builds and deploys FairNest + tUSDC.
 # Usage: PREFIX=yourname-fn ./scripts/deploy.sh
+# Re-runnable: existing accounts are kept, and the token is only deployed once.
+# A new escrow version with a changed state layout needs a fresh account: ESCROW=new-name.testnet
 source "$(dirname "$0")/common.sh"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-for acc in "$ESCROW" "$TOKEN" "$LANDLORD" "$TENANT" "$ARBITER"; do
+for acc in "$ESCROW" "$TOKEN" "$LANDLORD" "$TENANT" "$NEXT_TENANT" "$ARBITER"; do
+  exists "$acc" && continue
   near account create-account sponsor-by-faucet-service "$acc" \
     autogenerate-new-keypair save-to-legacy-keychain "${NET[@]}" create
 done
@@ -15,7 +18,7 @@ done
 near contract deploy "$ESCROW" use-file "$ROOT/contract/target/near/fairnest.wasm" \
   with-init-call new json-args '{}' prepaid-gas '30.0 Tgas' attached-deposit '0 NEAR' \
   "${NET[@]}" sign-with-legacy-keychain send
-near contract deploy "$TOKEN" use-file "$ROOT/test-token/target/near/test_token.wasm" \
+view "$TOKEN" ft_metadata '{}' >/dev/null 2>&1 || near contract deploy "$TOKEN" use-file "$ROOT/test-token/target/near/test_token.wasm" \
   with-init-call new json-args '{}' prepaid-gas '30.0 Tgas' attached-deposit '0 NEAR' \
   "${NET[@]}" sign-with-legacy-keychain send
 

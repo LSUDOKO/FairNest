@@ -17,24 +17,30 @@ echo "== 2. tenant gets test tUSDC from the faucet and locks the deposit"
 call "$TENANT" "$TOKEN" mint "{\"amount\":\"1500$U\"}"
 call "$TENANT" "$TOKEN" ft_transfer_call "{\"receiver_id\":\"$ESCROW\",\"amount\":\"1500$U\",\"msg\":\"$ID\"}" '1 yoctoNEAR'
 
-echo "== 3. landlord claims 200 (cleaning) + 400 (carpet)"
+echo "== 3. the tenant moves out early; the landlord approves a replacement, who takes over the lease NFT"
+call "$LANDLORD" "$ESCROW" approve_successor "{\"lease_id\":\"$ID\",\"successor\":\"$NEXT_TENANT\"}"
+call "$TENANT" "$ESCROW" nft_transfer "{\"receiver_id\":\"$NEXT_TENANT\",\"token_id\":\"$ID\"}" '1 yoctoNEAR'
+view "$ESCROW" nft_token "{\"token_id\":\"$ID\"}" | grep -o '"owner_id": *"[^"]*"'
+
+echo "== 4. landlord claims 200 (cleaning) + 400 (carpet)"
 call "$LANDLORD" "$ESCROW" file_claim "{\"lease_id\":\"$ID\",\"lines\":[
   {\"reason\":\"Professional cleaning\",\"amount\":\"200$U\",\"evidence_url\":\"https://example.com/invoice.pdf\",\"evidence_sha256\":\"\"},
   {\"reason\":\"Carpet replacement\",\"amount\":\"400$U\",\"evidence_url\":\"https://example.com/carpet.jpg\",\"evidence_sha256\":\"\"}]}"
 
-echo "== 4. tenant disputes the carpet: 200 to landlord and 900 to tenant are paid out now, 400 held"
-call "$TENANT" "$ESCROW" dispute "{\"lease_id\":\"$ID\",\"lines\":[1],\"reason\":\"Carpet was 8 years old, normal wear\"}"
+echo "== 5. the replacement tenant disputes the carpet: 200 to landlord and 900 to them are paid out now, 400 held"
+call "$NEXT_TENANT" "$ESCROW" dispute "{\"lease_id\":\"$ID\",\"lines\":[1],\"reason\":\"Carpet was 8 years old, normal wear\"}"
 
-echo "== 5. arbiter awards 100 of the 400 to the landlord"
+echo "== 6. arbiter awards 100 of the 400 to the landlord"
 call "$ARBITER" "$ESCROW" resolve "{\"lease_id\":\"$ID\",\"to_landlord\":\"100$U\",\"note\":\"Depreciated value of an 8 year old carpet\"}"
 
-echo "== 6. both withdraw"
-call "$TENANT" "$ESCROW" withdraw "{\"token\":\"$TOKEN\"}"
+echo "== 7. both withdraw (the original tenant is owed nothing: the deposit moved with the NFT)"
+call "$NEXT_TENANT" "$TOKEN" storage_deposit '{}' '0.01 NEAR'
+call "$NEXT_TENANT" "$ESCROW" withdraw "{\"token\":\"$TOKEN\"}"
 call "$LANDLORD" "$TOKEN" storage_deposit '{}' '0.01 NEAR'
 call "$LANDLORD" "$ESCROW" withdraw "{\"token\":\"$TOKEN\"}"
 
 echo "== result"
 view "$ESCROW" get_lease "{\"lease_id\":\"$ID\"}"
-view "$TOKEN" ft_balance_of "{\"account_id\":\"$TENANT\"}"
+view "$TOKEN" ft_balance_of "{\"account_id\":\"$NEXT_TENANT\"}"
 view "$TOKEN" ft_balance_of "{\"account_id\":\"$LANDLORD\"}"
 echo "Open https://testnet.nearblocks.io/address/$ESCROW to see every transaction."
