@@ -6,7 +6,8 @@ import { ContractId, ExplorerAccount } from '@/config';
 import { useNearWallet } from '@/providers/near-provider';
 import { useTx } from '@/components/tx';
 import { QuietField } from '@/components/field';
-import { claimTotal, countdown, deadline, decimals, fmt, fromUnits, nowSecs, sha256Hex, toCsv, toUnits, type Lease } from '@/lib';
+import { LeaseNft } from '@/components/lease-nft';
+import { claimTotal, countdown, deadline, decimals, fmt, fromUnits, nowSecs, sha256Hex, toCsv, toUnits, holders, type Lease } from '@/lib';
 
 const STAGE_HELP: Record<string, string> = {
   Created: 'Waiting for the tenant to lock the deposit.',
@@ -154,6 +155,12 @@ function LeaseView() {
             )}
           </section>
 
+          {me && !isT && holders(lease).some((h) => h.account === me) && (
+            <div className="notice notice--warn" style={{ marginTop: 16 }}>
+              You handed this lease to <span className="mono">{lease.tenant}</span>. The deposit, the refund and every tenant action moved with the NFT.
+            </div>
+          )}
+
           {/* ---------- actions ---------- */}
           {!me && (
             <section className="glass panel">
@@ -276,6 +283,7 @@ function LeaseView() {
         </div>
 
         <div>
+          <LeaseNft lease={lease} busy={tx.busy} run={tx.run} />
           <section className="glass panel">
             <div className="lease-card__amt">{fmt(lease.amount, lease.token)}</div>
             <p className="faint" style={{ marginTop: 6 }}>Lease ends {new Date(Number(lease.lease_end) * 1000).toLocaleString()}</p>
@@ -293,7 +301,7 @@ function LeaseView() {
             )}
             <dl className="parties" style={{ gridTemplateColumns: '1fr', marginTop: 22, marginBottom: 0 }}>
               {party('Landlord', lease.landlord, isL)}
-              {party('Tenant', lease.tenant, isT)}
+              {party('Tenant (NFT holder)', lease.tenant, isT)}
               {party('Arbiter', lease.arbiter, isA)}
             </dl>
           </section>

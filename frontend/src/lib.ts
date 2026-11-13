@@ -22,7 +22,24 @@ export type Lease = {
   to_landlord: string;
   to_tenant: string;
   history: Event[];
+  successor: string | null;
 };
+
+export type NftToken = { token_id: string; owner_id: string; metadata: { title: string; description: string; media: string } };
+
+/** Everyone who held the lease NFT, in order: funder first, then each transfer's receiver. */
+export function holders(l: Lease): { account: string; since: number }[] {
+  const out: { account: string; since: number }[] = [];
+  for (const e of l.history) {
+    if (e.kind === 'funded') out.push({ account: e.actor, since: Number(e.ts) });
+    if (e.kind === 'transferred' || e.kind === 'transfer_returned') out.push({ account: e.note, since: Number(e.ts) });
+  }
+  return out;
+}
+
+/** A tenant earns a clean move-out when a lease they held at settlement returned the full deposit. */
+export const cleanMoveOut = (l: Lease, account: string) =>
+  l.status === 'Settled' && l.tenant === account && l.to_tenant === l.amount;
 
 export const decimals = (token: string | null) => (token ? 6 : 24);
 export const symbol = (token: string | null) => (token === null ? 'NEAR' : token === TokenId ? 'tUSDC' : token);

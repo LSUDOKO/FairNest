@@ -13,7 +13,8 @@ export function Footer() {
         <nav aria-label="Footer">
           <Link href="/app">Dashboard</Link>
           <Link href="/new">New lease</Link>
-          <a href={ExplorerAccount(ContractId)} target="_blank" rel="noreferrer">Escrow contract</a>
+          <Link href="/profile">Rental record</Link>
+          <a href={ExplorerAccount(ContractId)} target="_blank" rel="noreferrer">Escrow + NFT contract</a>
           <a href={ExplorerAccount(TokenId)} target="_blank" rel="noreferrer">tUSDC token</a>
           <a href="https://github.com/LSUDOKO/FairNest" target="_blank" rel="noreferrer">Source on GitHub</a>
         </nav>

@@ -31,7 +31,11 @@ type NearContextValue = {
   signOut: () => Promise<void>;
   viewFunction: (params: ViewFunctionParams) => Promise<unknown>;
   callFunction: (params: CallFunctionParams) => Promise<{ result: unknown; hash: string }>;
+  /** NEP-413 sign-in proof for off-chain APIs. Nonce is returned base64-encoded. */
+  signMessage: (message: string, recipient: string) => Promise<SignedProof>;
 };
+
+export type SignedProof = { accountId: string; publicKey: string; signature: string; message: string; nonce: string; recipient: string };
 
 const NearContext = createContext<NearContextValue | undefined>(undefined);
 
@@ -73,7 +77,7 @@ export function NearProvider({ children }: PropsWithChildren) {
           signIn: {
             contractId: ContractId,
             // Non-payable calls are signed locally with a scoped function-call key (no wallet popup).
-            methodNames: ['file_claim', 'accept', 'dispute', 'resolve', 'finalize', 'withdraw', 'cancel', 'release_full'],
+            methodNames: ['file_claim', 'accept', 'dispute', 'resolve', 'finalize', 'withdraw', 'cancel', 'release_full', 'approve_successor'],
             allowance: nearToYocto('0.25').toString(),
           },
         }),
@@ -153,9 +157,19 @@ export function NearProvider({ children }: PropsWithChildren) {
     [wallet],
   );
 
+  const signMessage = useCallback(
+    async (message: string, recipient: string) => {
+      if (!wallet) throw new Error('Wallet is not connected');
+      const nonce = crypto.getRandomValues(new Uint8Array(32));
+      const signed = await wallet.signMessage({ message, recipient, nonce });
+      return { ...signed, message, recipient, nonce: btoa(String.fromCharCode(...nonce)) };
+    },
+    [wallet],
+  );
+
   const value = useMemo(
-    () => ({ loading, signedAccountId, signIn, signOut, viewFunction, callFunction }),
-    [callFunction, loading, signIn, signOut, signedAccountId, viewFunction],
+    () => ({ loading, signedAccountId, signIn, signOut, viewFunction, callFunction, signMessage }),
+    [callFunction, loading, signIn, signMessage, signOut, signedAccountId, viewFunction],
   );
 
   return <NearContext.Provider value={value}>{children}</NearContext.Provider>;

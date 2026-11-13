@@ -19,6 +19,7 @@ export const Navigation = () => {
         <Link href="/#how" className="hide-sm">How it works</Link>
         <Link href="/app" aria-current={here('/app')}>Dashboard</Link>
         <Link href="/new" aria-current={here('/new')} className="hide-sm">New lease</Link>
+        <Link href="/profile" aria-current={here('/profile')} className="hide-sm">Record</Link>
       </nav>
       {signedAccountId ? (
         <button className="btn btn--sm" onClick={() => void signOut()} title={`Signed in as ${signedAccountId}. Click to log out.`}>

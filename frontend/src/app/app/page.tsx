@@ -86,7 +86,7 @@ export default function Dashboard() {
                 ) : (
                   <div className="list">
                     {leases.map((l) => {
-                      const role = l.landlord === signedAccountId ? 'Landlord' : l.tenant === signedAccountId ? 'Tenant' : 'Arbiter';
+                      const role = l.landlord === signedAccountId ? 'Landlord' : l.tenant === signedAccountId ? 'Tenant' : l.arbiter === signedAccountId ? 'Arbiter' : 'Former tenant';
                       return (
                         <Link key={l.id} href={`/lease?id=${l.id}`} className="row">
                           <span>

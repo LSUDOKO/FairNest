@@ -17,6 +17,7 @@ export default function Landing() {
       <Problem />
       <HowItWorks />
       <Deadlines />
+      <LeaseNftSection />
       <LiveLease />
       <Details />
       <Closing />
@@ -111,8 +112,8 @@ function Word({ children, progress, range }: { children: string; progress: Motio
 const STEPS = [
   {
     who: 'Landlord, then tenant',
-    title: 'The tenant locks the deposit in the contract.',
-    body: 'The landlord sets the amount, picks a neutral arbiter and the deadlines. The tenant sends the deposit in tUSDC or NEAR. From here, neither of them can move it alone.',
+    title: 'The tenant locks the deposit and gets the lease NFT.',
+    body: 'The landlord sets the amount, picks a neutral arbiter and the deadlines. The tenant sends the deposit in tUSDC or NEAR and receives an NFT that is the deposit position. From here, neither of them can move the money alone.',
   },
   {
     who: 'Landlord',
@@ -245,6 +246,84 @@ function Deadlines() {
   );
 }
 
+/* ---------------------------------------------------------------- lease NFT */
+
+const NFT_USES = [
+  {
+    img: '/photos/keys.jpg',
+    alt: 'A hand holding a house key on a keyring in a stairwell',
+    credit: ['Jakub Żerdzicki', 'https://unsplash.com/photos/Vg96IZTFubo'],
+    title: 'Moving out early? Hand it over.',
+    body: 'The landlord approves a replacement tenant, and the NFT moves to them with the deposit, the refund rights and every tenant action. The old tenant keeps nothing.',
+  },
+  {
+    img: '/photos/empty-flat.jpg',
+    alt: 'An empty, freshly cleaned apartment with a fitted kitchen and wooden floor',
+    credit: ['Lisa Anna', 'https://unsplash.com/photos/PfeKrK-V_XA'],
+    title: 'A private vault for the inspection.',
+    body: 'Move-in photos and notes stay off-chain. Only the current NFT holder and the landlord can open them, checked against the chain on every request.',
+  },
+  {
+    img: '/photos/moving.jpg',
+    alt: 'A woman carrying a cardboard box in a living room full of moving boxes',
+    credit: ['Vitaly Gariev', 'https://unsplash.com/photos/wS40ELZROLE'],
+    title: 'A record that follows you.',
+    body: 'Get the whole deposit back and you earn a clean move-out badge. Share your rental record with the next landlord instead of a reference letter.',
+  },
+];
+
+function LeaseNftSection() {
+  const { viewFunction } = useNearWallet();
+  const [media, setMedia] = useState('');
+  useEffect(() => {
+    let live = true;
+    viewFunction({ contractId: ContractId, method: 'nft_token', args: { token_id: '0' } })
+      .then((t) => live && setMedia((t as { metadata: { media: string } } | null)?.metadata.media ?? ''))
+      .catch(() => {});
+    return () => { live = false; };
+  }, [viewFunction]);
+
+  return (
+    <section className="section" id="nft">
+      <div className="wrap">
+        <div className="nft-intro">
+          <div>
+            <h2 className="section__title">The deposit is an NFT that does something</h2>
+            <p className="section__intro">
+              When the tenant locks the deposit, the contract mints a NEP-171 token. Whoever holds it is the tenant: owed the refund, the only one who can answer a claim, the only tenant who can open the vault. Its image changes as the lease moves on.
+            </p>
+            <ul className="tag-row" style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', color: 'var(--text-2)' }}>
+              <li className="tag">Holds the deposit</li>
+              <li className="tag">Moves only to an approved tenant</li>
+              <li className="tag">Frozen during a claim</li>
+            </ul>
+          </div>
+          {media && (
+            <Link href="/lease?id=0" className="nft-live" aria-label="Lease NFT #0 on testnet">
+              {/* eslint-disable-next-line @next/next/no-img-element -- on-chain SVG data URI */}
+              <img src={media} alt="Lease NFT #0, rendered by the contract" width={260} height={260} />
+              <span className="faint mono">Live from testnet · lease #0</span>
+            </Link>
+          )}
+        </div>
+        <div className="uses">
+          {NFT_USES.map((u) => (
+            <article key={u.title} className="use">
+              <figure className="use__photo">
+                {/* eslint-disable-next-line @next/next/no-img-element -- static export, pre-sized photo */}
+                <img src={u.img} alt={u.alt} loading="lazy" width={800} height={533} />
+                <figcaption>Photo: <a href={u.credit[1]} target="_blank" rel="noreferrer">{u.credit[0]}</a> on Unsplash</figcaption>
+              </figure>
+              <h3>{u.title}</h3>
+              <p>{u.body}</p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ---------------------------------------------------------------- live proof */
 
 function LiveLease() {
@@ -264,7 +343,7 @@ function LiveLease() {
       <div className="wrap">
         <h2 className="section__title">Already settled on testnet</h2>
         <p className="section__intro">
-          Lease #0 ran the full dispute on the real contract. These numbers are read from the chain as this page loads.
+          Lease #0 ran the full flow on the real contract: the first tenant handed the lease NFT to a replacement, who then disputed a deduction. These numbers are read from the chain as this page loads.
         </p>
         <div className="glass proof">
           <div style={{ display: 'grid', gap: 20, alignContent: 'start' }}>

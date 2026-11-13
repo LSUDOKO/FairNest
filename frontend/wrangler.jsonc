@@ -1,6 +1,15 @@
 {
   "$schema": "https://unpkg.com/wrangler@4.124.0/config-schema.json",
   "name": "fairnest",
+  "main": "worker/index.ts",
   "compatibility_date": "2026-08-25",
-  "assets": { "directory": "./out", "not_found_handling": "404-page" }
+  "assets": {
+    "directory": "./out",
+    "binding": "ASSETS",
+    "not_found_handling": "404-page",
+    "run_worker_first": ["/api/*"]
+  },
+  // Private lease vault (photos, inspection notes). Created on first deploy.
+  "kv_namespaces": [{ "binding": "VAULT", "id": "47c2e9dfa5014c26ad925120a2da7ffa" }],
+  "vars": { "CONTRACT_ID": "fairnest-leases.testnet" }
 }
