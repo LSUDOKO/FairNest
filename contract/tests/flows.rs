@@ -273,3 +273,97 @@ async fn guards_reject_bad_input() -> R {
     println!("guards: deadline windows above 365 days rejected");
     Ok(())
 }
+
+async fn owner_of(w: &World, id: u64) -> R<Value> {
+    let t: Value = w.escrow.view("nft_token").args_json(json!({ "token_id": id.to_string() })).await?.json()?;
+    Ok(t["owner_id"].clone())
+}
+
+async fn nft_transfer(from: &Account, w: &World, to: &Account, id: u64, yocto: u128) -> R<near_workspaces::result::ExecutionFinalResult> {
+    Ok(from.call(w.escrow.id(), "nft_transfer")
+        .args_json(json!({ "receiver_id": to.id(), "token_id": id.to_string() }))
+        .deposit(NearToken::from_yoctonear(yocto)).max_gas().transact().await?)
+}
+
+#[tokio::test]
+async fn lease_nft_moves_the_deposit_and_every_tenant_right() -> R {
+    let w = world().await?;
+    let next = w.worker.dev_create_account().await?;
+    let stranger = w.worker.dev_create_account().await?;
+    let near = NearToken::from_near(1).as_yoctonear();
+    let id = create(&w, None, 4 * near, now_secs(&w).await?, 600).await?;
+    assert!(w.escrow.view("nft_token").args_json(json!({ "token_id": id.to_string() })).await?.json::<Value>()?.is_null());
+    println!("1. unfunded lease has no NFT yet");
+
+    w.tenant.call(w.escrow.id(), "fund_native").args_json(json!({ "lease_id": id.to_string() }))
+        .deposit(NearToken::from_near(4)).transact().await?.into_result()?;
+    let tok: Value = w.escrow.view("nft_token").args_json(json!({ "token_id": id.to_string() })).await?.json()?;
+    assert_eq!(tok["owner_id"], w.tenant.id().as_str());
+    assert!(tok["metadata"]["media"].as_str().unwrap().starts_with("data:image/svg+xml,"));
+    assert!(tok["metadata"]["media"].as_str().unwrap().contains("Deposit%20locked"));
+    let supply: String = w.escrow.view("nft_total_supply").await?.json()?;
+    assert_eq!(supply, "1");
+    println!("2. funding minted lease NFT #{id} to the tenant (image: Deposit locked)");
+
+    assert!(nft_transfer(&w.tenant, &w, &next, id, 1).await?.is_failure(), "no approved successor yet");
+    let r = call(&stranger, &w, "approve_successor", json!({ "lease_id": id.to_string(), "successor": next.id() })).await?;
+    assert!(r.is_failure(), "only the landlord approves");
+    call(&w.landlord, &w, "approve_successor", json!({ "lease_id": id.to_string(), "successor": next.id() })).await?.into_result()?;
+    assert!(nft_transfer(&stranger, &w, &next, id, 1).await?.is_failure(), "non-holder cannot move it");
+    assert!(nft_transfer(&w.tenant, &w, &stranger, id, 1).await?.is_failure(), "only to the approved successor");
+    assert!(nft_transfer(&w.tenant, &w, &next, id, 0).await?.is_failure(), "needs 1 yocto");
+    println!("3. blocked: no approval, non-holder, unapproved receiver, missing 1 yocto");
+
+    nft_transfer(&w.tenant, &w, &next, id, 1).await?.into_result()?;
+    assert_eq!(owner_of(&w, id).await?, next.id().as_str());
+    let l = lease(&w, id).await?;
+    assert_eq!(l["tenant"], next.id().as_str());
+    assert!(l["successor"].is_null(), "approval is single-use");
+    let mine: Vec<Value> = w.escrow.view("nft_tokens_for_owner").args_json(json!({ "account_id": w.tenant.id() })).await?.json()?;
+    assert!(mine.is_empty());
+    println!("4. tenant handed the lease to the approved replacement; the old tenant holds nothing");
+
+    assert!(nft_transfer(&w.tenant, &w, &w.tenant, id, 1).await?.is_failure(), "old holder cannot pull it back");
+    call(&w.landlord, &w, "file_claim", json!({ "lease_id": id.to_string(),
+        "lines": [line("Scratched floor", near), line("Cleaning", near / 2)] })).await?.into_result()?;
+    assert!(call(&w.tenant, &w, "accept", json!({ "lease_id": id.to_string() })).await?.is_failure());
+    assert!(call(&w.tenant, &w, "dispute", json!({ "lease_id": id.to_string(), "lines": [0], "reason": "x" })).await?.is_failure());
+    println!("5. after move-out claim: old tenant can neither accept nor dispute");
+
+    let r = call(&w.landlord, &w, "approve_successor", json!({ "lease_id": id.to_string(), "successor": stranger.id() })).await?;
+    assert!(r.is_failure(), "no new successor once a claim is open");
+    call(&next, &w, "dispute", json!({ "lease_id": id.to_string(), "lines": [0], "reason": "Floor was scratched before I moved in" })).await?.into_result()?;
+    assert_eq!(balance(&w, &next, None).await?, 4 * near - near - near / 2);
+    assert!(nft_transfer(&next, &w, &stranger, id, 1).await?.is_failure(), "frozen mid-payout");
+    assert!(owner_of(&w, id).await?.as_str() == Some(next.id().as_str()));
+    println!("6. mid-payout: 2.5 NEAR already credited to the current holder, token frozen while the arbiter decides");
+
+    call(&w.arbiter, &w, "resolve", json!({ "lease_id": id.to_string(), "to_landlord": (near / 4).to_string(), "note": "partial" })).await?.into_result()?;
+    assert_eq!(balance(&w, &next, None).await?, 4 * near - near / 2 - near / 4);
+    assert_eq!(balance(&w, &w.tenant, None).await?, 0, "old tenant is owed nothing");
+    assert!(call(&w.tenant, &w, "withdraw", json!({ "token": null })).await?.is_failure());
+    let tok: Value = w.escrow.view("nft_token").args_json(json!({ "token_id": id.to_string() })).await?.json()?;
+    assert!(tok["metadata"]["media"].as_str().unwrap().contains("Closed"));
+    let kinds: Vec<String> = lease(&w, id).await?["history"].as_array().unwrap().iter().map(|e| e["kind"].as_str().unwrap().to_string()).collect();
+    assert!(kinds.contains(&"transferred".to_string()));
+    println!("7. settled: replacement tenant owed 3.25 NEAR, old tenant 0; NFT image now reads Closed");
+    Ok(())
+}
+
+#[tokio::test]
+async fn transfer_call_to_a_non_contract_returns_the_token() -> R {
+    let w = world().await?;
+    let next = w.worker.dev_create_account().await?;
+    let id = create(&w, None, NearToken::from_near(1).as_yoctonear(), now_secs(&w).await? + 100_000, 600).await?;
+    w.tenant.call(w.escrow.id(), "fund_native").args_json(json!({ "lease_id": id.to_string() }))
+        .deposit(NearToken::from_near(1)).transact().await?.into_result()?;
+    call(&w.landlord, &w, "approve_successor", json!({ "lease_id": id.to_string(), "successor": next.id() })).await?.into_result()?;
+    let _bounced = w.tenant.call(w.escrow.id(), "nft_transfer_call")
+        .args_json(json!({ "receiver_id": next.id(), "token_id": id.to_string(), "msg": "" }))
+        .deposit(NearToken::from_yoctonear(1)).max_gas().transact().await?;
+    assert_eq!(owner_of(&w, id).await?, w.tenant.id().as_str());
+    let kinds: Vec<String> = lease(&w, id).await?["history"].as_array().unwrap().iter().map(|e| e["kind"].as_str().unwrap().to_string()).collect();
+    assert!(kinds.ends_with(&["transferred".to_string(), "transfer_returned".to_string()]));
+    println!("nft_transfer_call to an account with no receiver contract: token returned to the tenant");
+    Ok(())
+}

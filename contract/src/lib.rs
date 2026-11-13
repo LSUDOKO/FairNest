@@ -9,6 +9,12 @@
 //!   * arbiter does not rule within `arbiter_window`                 -> disputed sum to tenant
 //! Payouts are pull-based: settlement credits `balances`, `withdraw` moves the tokens and
 //! restores the balance if the transfer fails, so funds can never get stuck in a failed promise.
+//!
+//! Each funded lease is also a NEP-171 NFT (token id = lease id, see `nft.rs`). The NFT owner
+//! IS `lease.tenant`: one field, so whoever holds the token is the only account that can act
+//! as tenant and the only one credited at settlement. It can only move to a replacement
+//! tenant the landlord approved, and only while the deposit is simply locked (`Funded`).
+mod nft;
 use near_sdk::json_types::{U128, U64};
 use near_sdk::serde_json::{self, json};
 use near_sdk::store::{LookupMap, Vector};
@@ -91,6 +97,8 @@ pub struct Lease {
     pub to_landlord: U128,
     pub to_tenant: U128,
     pub history: Vec<Event>,
+    /// Replacement tenant the landlord approved; the lease NFT can only be transferred to them.
+    pub successor: Option<AccountId>,
 }
 
 #[near(contract_state)]
@@ -99,6 +107,8 @@ pub struct Contract {
     leases: Vector<Lease>,
     by_account: LookupMap<AccountId, Vec<u64>>,
     balances: LookupMap<(AccountId, Option<AccountId>), u128>,
+    /// Number of lease NFTs minted (= leases ever funded).
+    minted: u64,
 }
 
 fn now() -> u64 {
@@ -117,6 +127,7 @@ impl Contract {
             leases: Vector::new(Key::Leases),
             by_account: LookupMap::new(Key::ByAccount),
             balances: LookupMap::new(Key::Balances),
+            minted: 0,
         }
     }
 
@@ -169,6 +180,7 @@ impl Contract {
             to_landlord: U128(0),
             to_tenant: U128(0),
             history: vec![],
+            successor: None,
         };
         log_event(&mut lease, "created", &landlord, String::new());
         self.leases.push(lease);
@@ -205,6 +217,24 @@ impl Contract {
         self.credit_settlement(&lease);
     }
 
+    /// Landlord approves (or clears, with None) the replacement tenant the lease NFT may move to.
+    /// Only while the deposit is locked and no claim is open.
+    pub fn approve_successor(&mut self, lease_id: U64, successor: Option<AccountId>) {
+        let caller = env::predecessor_account_id();
+        let lease = self.lease_mut(lease_id);
+        require!(caller == lease.landlord, "only landlord");
+        require!(lease.status == Status::Funded, "lease is not in Funded state");
+        if let Some(s) = &successor {
+            require!(
+                *s != lease.landlord && *s != lease.arbiter && *s != lease.tenant,
+                "replacement must be a new account"
+            );
+        }
+        let note = successor.as_ref().map(|s| s.to_string()).unwrap_or_default();
+        lease.successor = successor;
+        log_event(lease, "successor_approved", &caller, note);
+    }
+
     /// Landlord files itemised deductions after the lease ends, within the claim window.
     pub fn file_claim(&mut self, lease_id: U64, lines: Vec<Line>) {
         let caller = env::predecessor_account_id();
@@ -228,6 +258,7 @@ impl Contract {
         }
         require!(total <= lease.amount.0, "deductions exceed the deposit");
         lease.claim = lines;
+        lease.successor = None;
         lease.status = Status::Claimed;
         lease.stage_at = U64(t);
         log_event(lease, "claimed", &caller, total.to_string());
@@ -243,6 +274,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         require!(lease.token.is_none(), "this lease is funded with a token, use ft_transfer_call");
         fund(lease, &caller, attached);
+        self.minted += 1;
     }
 
     /// NEP-141 receiver. msg = lease id as a string, e.g. "0".
@@ -258,6 +290,7 @@ impl Contract {
         let lease = self.lease_mut(U64(id));
         require!(lease.token.as_ref() == Some(&token), "wrong token for this lease");
         fund(lease, &sender_id, amount.0);
+        self.minted += 1;
         PromiseOrValue::Value(U128(0))
     }
 
@@ -412,6 +445,7 @@ impl Contract {
         self.leases.get(lease_id.0 as u32).cloned()
     }
 
+    /// Every lease an account ever took part in, including leases it held as tenant and passed on.
     pub fn get_leases_for(&self, account_id: AccountId) -> Vec<Lease> {
         self.by_account
             .get(&account_id)
@@ -431,6 +465,14 @@ impl Contract {
 
     fn lease_mut(&mut self, id: U64) -> &mut Lease {
         self.leases.get_mut(id.0 as u32).expect("lease not found")
+    }
+
+    fn index(&mut self, who: &AccountId, id: u64) {
+        let mut ids = self.by_account.get(who).cloned().unwrap_or_default();
+        if !ids.contains(&id) {
+            ids.push(id);
+            self.by_account.insert(who.clone(), ids);
+        }
     }
 
     fn credit(&mut self, who: &AccountId, token: &Option<AccountId>, amount: u128) {
@@ -454,6 +496,8 @@ fn fund(lease: &mut Lease, sender: &AccountId, amount: u128) {
     require!(amount == lease.amount.0, "must deposit the exact amount");
     lease.status = Status::Funded;
     log_event(lease, "funded", sender, amount.to_string());
+    // The deposit position becomes a NEP-171 token held by the tenant.
+    nft::emit("nft_mint", json!([{ "owner_id": sender, "token_ids": [lease.id.0.to_string()] }]));
 }
 
 fn disputed_sum(lease: &Lease) -> u128 {
@@ -488,4 +532,30 @@ fn log_event(lease: &mut Lease, kind: &str, actor: &AccountId, note: String) {
         })
     ));
     lease.history.push(Event { kind: kind.to_string(), actor: actor.clone(), ts: U64(ts), note });
+}
+
+/// Human amount for the NFT image: native NEAR has 24 decimals; tokens are assumed to be
+/// 6-decimal USD stablecoins (USDC, and tUSDC in the demo).
+// ponytail: decimals assumed per kind; read ft_metadata once per token if other tokens are allowed.
+pub(crate) fn fmt_amount(amount: u128, is_token: bool) -> String {
+    let (dec, unit) = if is_token { (6, "USDC") } else { (24, "NEAR") };
+    let base = 10u128.pow(dec);
+    let (whole, frac) = (amount / base, amount % base);
+    if frac == 0 {
+        return format!("{whole} {unit}");
+    }
+    let f = format!("{frac:0width$}", width = dec as usize);
+    format!("{whole}.{} {unit}", f.trim_end_matches('0').chars().take(2).collect::<String>())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fmt_amount;
+
+    #[test]
+    fn amounts_read_like_money() {
+        assert_eq!(fmt_amount(1_500_000_000, true), "1500 USDC");
+        assert_eq!(fmt_amount(1_250_000, true), "1.25 USDC");
+        assert_eq!(fmt_amount(5 * 10u128.pow(24), false), "5 NEAR");
+    }
 }
