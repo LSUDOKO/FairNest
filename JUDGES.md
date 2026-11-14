@@ -3,6 +3,8 @@
 This file maps every FairNest claim to something you can run or open. It follows the organizers' screening
 steps (HACKATHON.md Q-017): reproducibility check, feature verification, structured report.
 
+Demo video (about 2½ minutes, the full lease flow on testnet): https://youtu.be/cMCJI5074Dw
+
 ## 1. Reproduce (about 2 minutes, no accounts)
 
 | Do | See |
@@ -79,4 +81,4 @@ The release rules live in a contract anyone can read, the testnet demo uses minu
 | Live app | https://fairnest.adoranto737.workers.dev |
 | Contract | https://testnet.nearblocks.io/address/fairnest-leases.testnet |
 | Release with the deployed wasm, ABI and checksums | https://github.com/LSUDOKO/FairNest/releases |
-| Demo video story | [video/STORY.md](video/STORY.md) |
+| Demo video | https://youtu.be/cMCJI5074Dw (script: [video/STORY.md](video/STORY.md)) |

@@ -11,6 +11,7 @@ dispute them line by line, a neutral arbiter rules, and deadlines mean nobody ca
 **Tags:** `near` · `nep-171` · `nep-141` · `nep-413` · `nft` · `escrow` · `stablecoin` · `rental` · `security-deposit` · `proptech` · `rust` · `nextjs` · `cloudflare-workers`
 
 <p align="center">
+  <a href="https://youtu.be/cMCJI5074Dw"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-YouTube-FF0000?style=flat-square&logo=youtube&labelColor=0B0A06"></a>
   <a href="https://fairnest.adoranto737.workers.dev"><img alt="Live app" src="https://img.shields.io/badge/live%20app-fairnest.adoranto737.workers.dev-F3DF1D?style=flat-square&labelColor=0B0A06"></a>
   <a href="https://testnet.nearblocks.io/address/fairnest-leases.testnet"><img alt="Contract" src="https://img.shields.io/badge/NEAR%20testnet-fairnest--leases.testnet-F3DF1D?style=flat-square&labelColor=0B0A06"></a>
   <a href="tests/results/contract-sandbox-tests.log"><img alt="Sandbox tests" src="https://img.shields.io/badge/sandbox%20tests-7%20passed-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
@@ -21,6 +22,13 @@ dispute them line by line, a neutral arbiter rules, and deadlines mean nobody ca
 
 <p align="center">
   <img src="docs/assets/banner.png" alt="FairNest: your rent deposit, held by a NEAR contract, not your landlord" width="100%">
+</p>
+
+## Demo video
+
+<p align="center">
+  <a href="https://youtu.be/cMCJI5074Dw"><img src="https://img.youtube.com/vi/cMCJI5074Dw/maxresdefault.jpg" width="720" alt="Watch the FairNest demo on YouTube"></a><br>
+  <a href="https://youtu.be/cMCJI5074Dw"><b>▶ Watch the demo on YouTube</b></a>. It shows Maya, Raj, Leo and Priya running a real lease on testnet.
 </p>
 
 <p align="center">
@@ -46,6 +54,7 @@ All code was written during the hackathon window.
 
 | | |
 | --- | --- |
+| Demo video | https://youtu.be/cMCJI5074Dw |
 | Live app (testnet) | https://fairnest.adoranto737.workers.dev. The settled demo lease is at [`/lease?id=0`](https://fairnest.adoranto737.workers.dev/lease?id=0), and no wallet is needed to view it. |
 | Contract | [`fairnest-leases.testnet`](https://testnet.nearblocks.io/address/fairnest-leases.testnet) (escrow + lease NFT). The deployed code hash equals the wasm built from this repo; see [tests](tests/README.md). |
 | One command to verify everything on-chain | `python3 tests/onchain/verify.py` runs 29 checks against testnet using the Python stdlib only. [Last output](tests/results/onchain-verify.log) |

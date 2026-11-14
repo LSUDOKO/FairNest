@@ -1,5 +1,7 @@
 # FairNest demo video: "Maya's deposit"
 
+Finished video: https://youtu.be/cMCJI5074Dw
+
 A 2½-minute story that shows every step of FairNest working on testnet, told through four people.
 Each scene pairs a character card (from `characters/`) with a real screen recording of the live app:
 https://fairnest.adoranto737.workers.dev
