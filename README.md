@@ -14,9 +14,15 @@ dispute them line by line, a neutral arbiter rules, and deadlines mean nobody ca
   <a href="https://youtu.be/cMCJI5074Dw"><img alt="Demo video" src="https://img.shields.io/badge/demo%20video-YouTube-FF0000?style=flat-square&logo=youtube&labelColor=0B0A06"></a>
   <a href="https://fairnest.adoranto737.workers.dev"><img alt="Live app" src="https://img.shields.io/badge/live%20app-fairnest.adoranto737.workers.dev-F3DF1D?style=flat-square&labelColor=0B0A06"></a>
   <a href="https://testnet.nearblocks.io/address/fairnest-leases.testnet"><img alt="Contract" src="https://img.shields.io/badge/NEAR%20testnet-fairnest--leases.testnet-F3DF1D?style=flat-square&labelColor=0B0A06"></a>
-  <a href="tests/results/contract-sandbox-tests.log"><img alt="Sandbox tests" src="https://img.shields.io/badge/sandbox%20tests-7%20passed-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
+  <a href="https://github.com/LSUDOKO/FairNest/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/LSUDOKO/FairNest/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/LSUDOKO/FairNest/releases/latest"><img alt="Release" src="https://img.shields.io/github/v/release/LSUDOKO/FairNest?style=flat-square&labelColor=0B0A06&color=F3DF1D"></a>
+  <a href="tests/results/contract-sandbox-tests.log"><img alt="Sandbox tests" src="https://img.shields.io/badge/sandbox%20tests-8%20passed-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
+  <a href="tests/results/vault-api-tests.log"><img alt="Vault API tests" src="https://img.shields.io/badge/vault%20API%20tests-11%2F11-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
   <a href="tests/results/onchain-verify.log"><img alt="On-chain checks" src="https://img.shields.io/badge/on--chain%20checks-29%2F29-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
   <a href="AUDIT.md"><img alt="Security review" src="https://img.shields.io/badge/security%20review-AUDIT.md-F0EEE4?style=flat-square&labelColor=0B0A06"></a>
+  <img alt="Rust" src="https://img.shields.io/badge/Rust-near--sdk%205.30-F0EEE4?style=flat-square&logo=rust&labelColor=0B0A06">
+  <img alt="Next.js" src="https://img.shields.io/badge/Next.js-16-F0EEE4?style=flat-square&logo=nextdotjs&labelColor=0B0A06">
+  <img alt="Cloudflare" src="https://img.shields.io/badge/Cloudflare-Workers%20%2B%20KV-F0EEE4?style=flat-square&logo=cloudflare&labelColor=0B0A06">
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-F0EEE4?style=flat-square&labelColor=0B0A06"></a>
 </p>
 
@@ -39,7 +45,9 @@ dispute them line by line, a neutral arbiter rules, and deadlines mean nobody ca
   <a href="#try-it">Try it</a> ·
   <a href="JUDGES.md">For judges</a> ·
   <a href="AUDIT.md">Audit</a> ·
-  <a href="tests/">Tests and proof</a>
+  <a href="TESTING.md">Testing</a> ·
+  <a href="ARCHITECTURE.md">Architecture</a> ·
+  <a href="BUSINESS.md">Business</a>
 </p>
 
 ---
@@ -56,9 +64,9 @@ All code was written during the hackathon window.
 | --- | --- |
 | Demo video | https://youtu.be/cMCJI5074Dw |
 | Live app (testnet) | https://fairnest.adoranto737.workers.dev. The settled demo lease is at [`/lease?id=0`](https://fairnest.adoranto737.workers.dev/lease?id=0), and no wallet is needed to view it. |
-| Contract | [`fairnest-leases.testnet`](https://testnet.nearblocks.io/address/fairnest-leases.testnet) (escrow + lease NFT). The deployed code hash equals the wasm built from this repo; see [tests](tests/README.md). |
+| Contract | [`fairnest-leases.testnet`](https://testnet.nearblocks.io/address/fairnest-leases.testnet) (escrow + lease NFT). The deployed code hash equals the wasm built from this repo; see [TESTING.md](TESTING.md). |
 | One command to verify everything on-chain | `python3 tests/onchain/verify.py` runs 29 checks against testnet using the Python stdlib only. [Last output](tests/results/onchain-verify.log) |
-| One command to run every flow locally | `cd contract && cargo test -- --nocapture` runs 6 sandbox flows + 1 unit test. [Last output](tests/results/contract-sandbox-tests.log) |
+| One command to run every flow locally | `cd contract && cargo test -- --nocapture` runs 7 sandbox tests + 1 unit test. [Last output](tests/results/contract-sandbox-tests.log) |
 | Judge guide | [JUDGES.md](JUDGES.md): each claim with the file, test or transaction that proves it |
 
 ## The problem
@@ -166,9 +174,39 @@ stateDiagram-v2
 | `nft_transfer` / `nft_transfer_call` | NFT holder | Hands the lease to the approved replacement (1 yoctoNEAR, so the wallet confirms). |
 | `nft_token`, `nft_tokens_for_owner`, `nft_metadata`, … | anyone | NEP-171/177/181 views. The token image is an SVG drawn by the contract from the lease's current stage. |
 
+## Architecture
+
+There is no backend server or database of our own. The contract holds the money and the rules, the static app
+talks to the chain directly, and a single Cloudflare Worker gates the private vault using NEAR signatures.
+
+```mermaid
+flowchart LR
+    U["Tenant / Landlord / Arbiter"] -->|"wallet-signed calls"| C["fairnest-leases.testnet<br/>escrow + lease NFT"]
+    U -->|"scoped function-call key<br/>(no popup for routine steps)"| C
+    U -->|"HTTPS"| W["Cloudflare Worker<br/>static app"]
+    C <-->|"ft_transfer_call / ft_transfer"| T["tUSDC NEP-141"]
+    U -->|"NEP-413 signed request"| V["Vault API"]
+    V -->|"view_access_key + get_lease<br/>on every request"| C
+    V <--> KV[("KV: photos, notes")]
+    C -->|"NEP-297 events"| X["explorers / indexers"]
+```
+
+| What happens | Behind the scenes |
+| --- | --- |
+| A user opens the app | Static pages from Cloudflare's edge, and lease data read straight from NEAR RPC. There is no login server. |
+| The user signs in | near-connect opens their wallet, and a function-call key limited to this contract and 9 methods is added so later steps need no popup |
+| The landlord creates a lease, the tenant deposits | Wallet-confirmed transactions. A stablecoin deposit is one `ft_transfer_call`, which the contract checks in `ft_on_transfer` |
+| A claim, dispute, ruling or deadline | A single contract call changes state, credits balances and emits a NEP-297 event, and the page re-reads the lease |
+| Someone withdraws | The contract sends the funds in a promise, and a private callback restores the balance if the transfer fails |
+| Someone opens the vault | The wallet signs a NEP-413 message. The Worker verifies it, checks the key is full-access, and reads the current holder from the chain |
+| Something fails | The contract panics and nothing changes, a wrong token is refunded, a failed payout is restored, and the UI shows the error |
+
+Full detail, with the storage layout, transaction lifecycle and scaling notes, is in [ARCHITECTURE.md](ARCHITECTURE.md).
+The method and HTTP reference is in [API.md](API.md).
+
 ## How FairNest uses NEAR
 
-Every item below is in the code and covered by a test or an on-chain check. [JUDGES.md](JUDGES.md#near-integration) links each one.
+Every item below is in the code and covered by a test or an on-chain check. [INTEGRATIONS.md](INTEGRATIONS.md) links each one to code and evidence.
 
 | NEAR feature | Used for | Where |
 | --- | --- | --- |
@@ -250,6 +288,24 @@ full-access key, which was used to deploy the audit fixes. Until that key is del
 deposit" depends on trusting the key holder not to redeploy. Before mainnet, deploy, verify the code hash,
 then delete the key ([AUDIT.md F-9](AUDIT.md#f-9-info-centralisation-acknowledged)).
 
+### AI
+
+**The product contains no AI**: no model touches money or access, because deposit outcomes must be
+predictable from the contract alone. AI was used in development: the coding assistant, the internal security
+review, and the video portraits. A TEE-based photo-comparison assistant for arbiters is on the
+[roadmap](ROADMAP.md), but it is not built. See [INTEGRATIONS.md](INTEGRATIONS.md#ai).
+
+## Security
+
+Every method checks its caller's role. Settlement uses pull payments with restore-on-failure, and both
+callbacks are private. Inputs and deadlines are bounded, and the vault is gated by NEP-413 plus a live
+holder check. An internal, AI-assisted review found 10 issues; 3 were fixed and deployed, and the rest are
+documented. **There has been no third-party audit, and this is testnet only.**
+
+- Threat model and trust assumptions: [SECURITY.md](SECURITY.md).
+- Findings and fixes: [AUDIT.md](AUDIT.md).
+- Tests for each: [TESTING.md](TESTING.md).
+
 ## Check it in 2 minutes
 
 No install beyond `curl` / Python 3:
@@ -302,7 +358,7 @@ The fallback is `cargo install cargo-near --locked` (about 15 minutes; on GCC 16
 `CC=clang CXX=clang++`). The first run downloads a local NEAR sandbox node.
 
 1. Run `cd contract && cargo test -- --nocapture`.
-2. You should see six sandbox tests pass, plus one unit test. Each prints the steps it runs:
+2. You should see seven sandbox tests pass, plus one unit test. Each prints the steps it runs:
    - `happy_path_native_near`: a 5 NEAR deposit and a 1.5 NEAR claim accepted. The tenant withdraws 3.5 NEAR.
    - `partial_dispute_with_token_and_arbiter`: a 1000 tUSDC deposit and a 100 + 300 claim. The tenant disputes the 300, so 100 and 600 pay out at once, and the arbiter awards 100 of the 300. The landlord's first withdraw fails because they are not registered on the token, and the balance is restored.
    - `timeouts_protect_both_sides`: each of the three deadlines settles the lease as listed above. A late dispute, accept or ruling is rejected.
@@ -313,6 +369,8 @@ The fallback is `cargo install cargo-near --locked` (about 15 minutes; on GCC 16
      - A transfer during the dispute (mid-payout) is rejected.
    - `transfer_call_to_a_non_contract_returns_the_token`: `nft_transfer_call` to an account with no receiver returns the token.
    - `guards_reject_bad_input`: these are all rejected: wrong funder, wrong amount, wrong token (refunded), an early claim, a claim above the deposit, windows over 365 days, history beyond 16 events, and aliased ids.
+   - `unauthorized_callers_are_rejected`: every wrong role is refused at every stage, external calls to the private callbacks fail, and landlord + tenant payouts equal the deposit exactly.
+3. Optional live checks: `python3 tests/onchain/verify.py` (29 checks) and `node --test tests/api/vault.test.mjs` (11 vault API cases; the signed ones need the demo keys). Details are in [TESTING.md](TESTING.md).
 
 ### Path B: testnet from the command line
 
@@ -352,6 +410,35 @@ Hosted at https://fairnest.adoranto737.workers.dev; skip to step 4. To run it lo
 - **The wrong token is sent.** `ft_on_transfer` rejects it and the token contract refunds it.
 - **The receiver is not registered on the token.** `withdraw` fails safely and the balance stays claimable.
 
+## Business
+
+FairNest has no customers, revenue or partners yet. [BUSINESS.md](BUSINESS.md) lays out the case with
+sourced figures:
+- the size of the deposit market;
+- how it compares with government deposit schemes and deposit-insurance products;
+- candidate customers and revenue models;
+- the regulatory constraints. For example, UK deposits must sit in an authorised scheme, so a UK launch needs a partner scheme.
+
+## Roadmap
+
+The near term is mainnet hardening from the audit: minimum windows, 1-yocto confirmation, a token
+allowlist, an external audit, and deleting the contract key. After that come a DAO arbiter, gasless
+tenants, Intents pay-in, and paid hand-overs. See [ROADMAP.md](ROADMAP.md) and [CHANGELOG.md](CHANGELOG.md).
+
+## Documentation
+
+| Doc | For |
+| --- | --- |
+| [JUDGES.md](JUDGES.md) | each claim, with the file, test or transaction that proves it |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | components, storage, transaction lifecycle, scale |
+| [API.md](API.md) | contract methods, views and events; vault HTTP API |
+| [SECURITY.md](SECURITY.md) / [AUDIT.md](AUDIT.md) | threat model / findings and fixes |
+| [TESTING.md](TESTING.md) | methodology and latest results |
+| [DEPLOYMENT.md](DEPLOYMENT.md) | deploying contracts and the Worker, configuration, CI, mainnet checklist |
+| [INTEGRATIONS.md](INTEGRATIONS.md) | every NEAR standard and service used, and what is not integrated |
+| [BUSINESS.md](BUSINESS.md) / [ROADMAP.md](ROADMAP.md) | market, competitors, revenue / what comes next |
+| [CONTRIBUTING.md](CONTRIBUTING.md) / [CHANGELOG.md](CHANGELOG.md) | how to contribute / version history |
+
 ## Repository layout
 
 ```
@@ -360,7 +447,8 @@ test-token/        tUSDC, NEP-141 with a public faucet mint (testnet only)
 frontend/          Next.js 16 static app (@hot-labs/near-connect, near-api-js, Motion)
 frontend/worker/   Cloudflare Worker: serves the app and the NEP-413-gated vault API (KV)
 scripts/           deploy.sh and demo.sh for testnet (near-cli-rs)
-tests/             verify.py (live on-chain checks) and saved results of every check
+tests/             onchain/verify.py, api/vault.test.mjs (live checks) and results/ of every check
+.github/           CI workflow, issue and PR templates
 video/             demo video story, character portraits and the Remotion film project
 docs/assets/       logo, banner, screenshots of the live app
 AUDIT.md           internal security review; JUDGES.md: claim-to-proof map
@@ -385,6 +473,13 @@ assistant.
 - Cross-chain deposits through NEAR Intents (there is no testnet).
 - Mainnet hardening from [AUDIT.md](AUDIT.md): minimum windows, 1-yocto on irreversible calls, a token allowlist, and deleting the contract key.
 
-## License
+## Contributing
 
-MIT, see [`LICENSE`](LICENSE).
+Issues and PRs are welcome. Read [CONTRIBUTING.md](CONTRIBUTING.md) first. Every change to who can move money
+needs a test. Report security issues privately ([SECURITY.md](SECURITY.md#reporting-a-vulnerability)).
+
+## License and acknowledgements
+
+MIT, see [`LICENSE`](LICENSE). Built on NEAR's open-source tooling (near-sdk-rs, near-workspaces, cargo-near,
+near-cli-rs), HOT Labs' near-connect, Next.js, and Cloudflare Workers. Problem figures are credited to their
+sources in [The problem](#the-problem) and [BUSINESS.md](BUSINESS.md).

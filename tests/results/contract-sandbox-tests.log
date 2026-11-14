@@ -1,5 +1,5 @@
    Compiling fairnest v0.1.0 (~/Desktop/hackathon_projects/FairNest/contract)
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.50s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 7.63s
      Running unittests src/lib.rs (target/debug/deps/fairnest-81179c0aadfd4b8f)
 
 running 1 test
@@ -9,7 +9,14 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
 
      Running tests/flows.rs (target/debug/deps/flows-88fb644dc9e1c322)
 
-running 6 tests
+running 7 tests
+test guards_reject_bad_input has been running for over 60 seconds
+test happy_path_native_near has been running for over 60 seconds
+test lease_nft_moves_the_deposit_and_every_tenant_right has been running for over 60 seconds
+test partial_dispute_with_token_and_arbiter has been running for over 60 seconds
+test timeouts_protect_both_sides has been running for over 60 seconds
+test transfer_call_to_a_non_contract_returns_the_token has been running for over 60 seconds
+test unauthorized_callers_are_rejected has been running for over 60 seconds
 1. landlord created lease 0 for a 5 NEAR deposit
 2. tenant funded it, status = "Funded"
 1. unfunded lease has no NFT yet
@@ -17,35 +24,41 @@ running 6 tests
 2. funding minted lease NFT #0 to the tenant (image: Deposit locked)
 4. tenant accepted: landlord credited 1.5 NEAR, tenant 3.5 NEAR
 a) landlord silent past claim window -> tenant refunded in full
-nft_transfer_call to an account with no receiver contract: token returned to the tenant
-test transfer_call_to_a_non_contract_returns_the_token ... ok
 5. tenant withdrew 3.5 NEAR to their wallet
+nft_transfer_call to an account with no receiver contract: token returned to the tenant
 test happy_path_native_near ... ok
-1. landlord created lease 0 for 1000 tUSDC
+test transfer_call_to_a_non_contract_returns_the_token ... ok
+auth: cancel and fund are role-checked
 3. blocked: no approval, non-holder, unapproved receiver, missing 1 yocto
-2. tenant funded it with ft_transfer_call
 4. tenant handed the lease to the approved replacement; the old tenant holds nothing
+1. landlord created lease 0 for 1000 tUSDC
+5. after move-out claim: old tenant can neither accept nor dispute
+auth: release_full, approve_successor and file_claim are landlord-only
+6. mid-payout: 2.5 NEAR already credited to the current holder, token frozen while the arbiter decides
+2. tenant funded it with ft_transfer_call
 3. landlord claimed 100 (paint) + 300 (carpet)
+7. settled: replacement tenant owed 3.25 NEAR, old tenant 0; NFT image now reads Closed
+test lease_nft_moves_the_deposit_and_every_tenant_right ... ok
 4. tenant disputed the carpet only: paint 100 -> landlord, 600 -> tenant right away, 300 held
 guards: wrong funder, wrong amount and wrong token all rejected
 5. arbiter split the 300: landlord 200 total, tenant 800 total
-5. after move-out claim: old tenant can neither accept nor dispute
 6. landlord withdraw failed (not registered on token), balance restored
+auth: accept and dispute are tenant-only; bad line indexes rejected
 guards: early claim and over-deposit claim rejected
-6. mid-payout: 2.5 NEAR already credited to the current holder, token frozen while the arbiter decides
 7. after storage_deposit, landlord withdrew 200 tUSDC
 test partial_dispute_with_token_and_arbiter ... ok
 guards: deadline windows above 365 days rejected
-7. settled: replacement tenant owed 3.25 NEAR, old tenant 0; NFT image now reads Closed
-test lease_nft_moves_the_deposit_and_every_tenant_right ... ok
+auth: resolve is arbiter-only and capped at the disputed sum (duplicate line index counted once)
+auth: private callbacks reject external callers; empty withdraw fails
+auth: settled once, landlord 2000 + tenant rest = deposit; no second ruling or finalize
+test unauthorized_callers_are_rejected ... ok
 guards: history capped at 16 events, aliased lease and token ids rejected
 test guards_reject_bad_input ... ok
 b) tenant silent past response window -> claim stands (late dispute and accept rejected)
-test timeouts_protect_both_sides has been running for over 60 seconds
 c) arbiter silent past arbiter window -> disputed sum to tenant (late ruling rejected)
 test timeouts_protect_both_sides ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.24s
+test result: ok. 7 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 138.32s
 
    Doc-tests fairnest
 
@@ -53,3 +66,4 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
+EXIT 0

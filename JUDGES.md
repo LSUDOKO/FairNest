@@ -11,10 +11,10 @@ Demo video (about 2½ minutes, the full lease flow on testnet): https://youtu.be
 | --- | --- |
 | `python3 tests/onchain/verify.py` | `ALL CHECKS PASSED`. There are 29 checks against NEAR testnet: lease 0 state, NFT owner, all 9 demo transactions, the live site, the vault refusing unsigned requests, and the deployed code hash equal to the local build (that last check needs step 2's build). [Saved output](tests/results/onchain-verify.log). |
 | Open https://fairnest.adoranto737.workers.dev/lease?id=0 | Lease #0 `Settled`, holder `fairnest-tenant2.testnet`, the 300 / 1200 split bar, the holder timeline, and the on-chain record. No wallet needed. |
-| `cd contract && cargo test -- --nocapture` (needs Rust + cargo-near, about 5 min the first time) | `6 passed` sandbox flows + `1 passed` unit test, each printing its steps. [Saved output](tests/results/contract-sandbox-tests.log). |
+| `cd contract && cargo test -- --nocapture` (needs Rust + cargo-near, about 5 min the first time) | `7 passed` sandbox tests + `1 passed` unit test, each printing its steps. [Saved output](tests/results/contract-sandbox-tests.log). |
 | `cd frontend && npm install && npm run lint && npm run build` | Both exit 0, and 7 static routes are built. [eslint](tests/results/frontend-eslint.log), [build](tests/results/frontend-build.log). |
 
-Every check, with its command and last result, is listed in [tests/README.md](tests/README.md).
+Every check, with its command and last result, is listed in [TESTING.md](TESTING.md). There are also 11 live vault API cases: `node --test tests/api/vault.test.mjs`, with a [log](tests/results/vault-api-tests.log). CI runs everything on each push: [Actions](https://github.com/LSUDOKO/FairNest/actions/workflows/ci.yml).
 
 ## 2. Feature verification: claim, then proof
 
@@ -66,14 +66,20 @@ The release rules live in a contract anyone can read, the testnet demo uses minu
 - **Default outcomes that favour the party who acted.** A silent landlord means a refund. A silent tenant means the claim stands. A silent arbiter means the money goes to the tenant, because the landlord carries the burden of proof. Anyone can apply a deadline.
 - **Off-chain privacy, on-chain authority.** Inspection photos stay off-chain, but who may see them is decided by the chain on every request (NEP-413 plus the live holder).
 
-## 5. Honest limits
+## 5. AI, business and competition
+
+- **AI.** The product has no AI at runtime, by design: payouts must be predictable from the contract. AI was used in development (coding assistant, internal review, video portraits). See [INTEGRATIONS.md](INTEGRATIONS.md#ai).
+- **Business.** There are no customers or revenue. The sourced market, the competitors (UK deposit schemes, deposit-insurance products), candidate revenue models and the regulatory blockers are in [BUSINESS.md](BUSINESS.md).
+- **Engineering docs.** [ARCHITECTURE.md](ARCHITECTURE.md), [API.md](API.md), [SECURITY.md](SECURITY.md), [TESTING.md](TESTING.md), [DEPLOYMENT.md](DEPLOYMENT.md).
+
+## 6. Honest limits
 
 - **Testnet only.** The contract account still has a full-access key; deleting it is the mainnet step ([AUDIT.md F-9](AUDIT.md)).
 - **Open findings.** F-3 (minimum window length), F-4 (no 1-yocto on irreversible calls), F-6 (unbounded views) and F-7 (token allowlist) are acknowledged and not fixed.
 - **Not built.** A Sputnik DAO arbiter, NEAR Intents pay-in, a meta-transaction relayer, deposit interest, and paying the outgoing tenant inside the NFT transfer.
 - **Tooling.** The code was written during the hackathon with help from an AI coding assistant. The security review in AUDIT.md is internal and AI-assisted, not a third-party audit.
 
-## 6. Links
+## 7. Links
 
 | | |
 | --- | --- |
