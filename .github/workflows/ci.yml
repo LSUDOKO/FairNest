@@ -1,0 +1,90 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "0 6 * * *" # daily: re-check the live testnet deployment
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    name: Contract (clippy, sandbox tests, wasm build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain from rust-toolchain.toml
+        run: rustup show active-toolchain || rustup toolchain install
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            contract
+            test-token
+      - name: Install cargo-near
+        run: curl --proto '=https' --tlsv1.2 -LsSf https://github.com/near/cargo-near/releases/latest/download/cargo-near-installer.sh | sh
+      - name: Clippy
+        working-directory: contract
+        run: cargo clippy --all-targets -- -D warnings
+      - name: Sandbox tests (all flows on a local NEAR node)
+        working-directory: contract
+        run: cargo test -- --nocapture
+      - name: Build wasm
+        run: |
+          (cd contract && cargo near build non-reproducible-wasm)
+          (cd test-token && cargo near build non-reproducible-wasm)
+          sha256sum contract/target/near/fairnest.wasm test-token/target/near/test_token.wasm
+
+  frontend:
+    name: Frontend (eslint, tsc, build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npx tsc --noEmit
+      - run: npm run build
+
+  security:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+      # RUSTSEC-2026-0387 (crypto-bigint) is only in test tooling, not in the wasm: see AUDIT.md#dependencies
+      - name: cargo audit
+        working-directory: contract
+        run: cargo audit --ignore RUSTSEC-2026-0387
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: npm audit (production dependencies)
+        working-directory: frontend
+        run: npm audit --omit=dev
+
+  live:
+    name: Live testnet deployment
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - name: On-chain state, demo transactions, site and vault gate
+        run: python3 tests/onchain/verify.py
+      - name: Vault API (signed cases skip without demo keys)
+        run: node --test tests/api/vault.test.mjs

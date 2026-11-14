@@ -392,3 +392,85 @@ async fn transfer_call_to_a_non_contract_returns_the_token() -> R {
     println!("nft_transfer_call to an account with no receiver contract: token returned to the tenant");
     Ok(())
 }
+
+/// Every role check, plus the callbacks an attacker would most like to call directly.
+#[tokio::test]
+async fn unauthorized_callers_are_rejected() -> R {
+    let w = world().await?;
+    let d = NearToken::from_near(2);
+    let stranger = w.worker.dev_create_account().await?;
+    let id = create(&w, None, d.as_yoctonear(), now_secs(&w).await?, 600).await?;
+    let lid = json!({ "lease_id": id.to_string() });
+    let fails = |r: near_workspaces::result::ExecutionFinalResult, what: &str| {
+        assert!(r.is_failure(), "{what} must fail");
+    };
+
+    // Created: only the landlord may cancel; only the tenant may fund.
+    fails(call(&w.tenant, &w, "cancel", lid.clone()).await?, "tenant cancel");
+    fails(call(&stranger, &w, "cancel", lid.clone()).await?, "stranger cancel");
+    fails(stranger.call(w.escrow.id(), "fund_native").args_json(lid.clone()).deposit(d).transact().await?, "stranger fund");
+    w.tenant.call(w.escrow.id(), "fund_native").args_json(lid.clone()).deposit(d).transact().await?.into_result()?;
+    println!("auth: cancel and fund are role-checked");
+
+    // Funded: only the landlord may release, approve a successor or file a claim.
+    for who in [&w.tenant, &w.arbiter, &stranger] {
+        fails(call(who, &w, "release_full", lid.clone()).await?, "non-landlord release_full");
+        fails(call(who, &w, "approve_successor",
+            json!({ "lease_id": id.to_string(), "successor": stranger.id() })).await?, "non-landlord approve");
+        fails(call(who, &w, "file_claim",
+            json!({ "lease_id": id.to_string(), "lines": [line("x", 1)] })).await?, "non-landlord claim");
+    }
+    fails(call(&w.landlord, &w, "approve_successor",
+        json!({ "lease_id": id.to_string(), "successor": w.arbiter.id() })).await?, "arbiter as successor");
+    println!("auth: release_full, approve_successor and file_claim are landlord-only");
+
+    // Claimed: only the tenant (NFT holder) may accept or dispute; the arbiter cannot rule yet.
+    call(&w.landlord, &w, "file_claim",
+        json!({ "lease_id": id.to_string(), "lines": [line("Paint", 1000), line("Carpet", 3000)] })).await?.into_result()?;
+    for who in [&w.landlord, &w.arbiter, &stranger] {
+        fails(call(who, &w, "accept", lid.clone()).await?, "non-tenant accept");
+        fails(call(who, &w, "dispute",
+            json!({ "lease_id": id.to_string(), "lines": [1], "reason": "x" })).await?, "non-tenant dispute");
+    }
+    fails(call(&w.arbiter, &w, "resolve",
+        json!({ "lease_id": id.to_string(), "to_landlord": "0", "note": "" })).await?, "resolve before dispute");
+    fails(call(&w.tenant, &w, "dispute",
+        json!({ "lease_id": id.to_string(), "lines": [7], "reason": "x" })).await?, "dispute out-of-range line");
+    fails(call(&w.tenant, &w, "dispute",
+        json!({ "lease_id": id.to_string(), "lines": [], "reason": "x" })).await?, "dispute no lines");
+    println!("auth: accept and dispute are tenant-only; bad line indexes rejected");
+
+    // Disputed: only the arbiter may rule, and never above the disputed sum.
+    call(&w.tenant, &w, "dispute",
+        json!({ "lease_id": id.to_string(), "lines": [1, 1], "reason": "old carpet" })).await?.into_result()?;
+    for who in [&w.landlord, &w.tenant, &stranger] {
+        fails(call(who, &w, "resolve",
+            json!({ "lease_id": id.to_string(), "to_landlord": "1000", "note": "" })).await?, "non-arbiter resolve");
+    }
+    fails(call(&w.arbiter, &w, "resolve",
+        json!({ "lease_id": id.to_string(), "to_landlord": "3001", "note": "" })).await?, "award above disputed");
+    println!("auth: resolve is arbiter-only and capped at the disputed sum (duplicate line index counted once)");
+
+    // Private callbacks cannot be called from outside to mint a balance or steal a token.
+    fails(call(&stranger, &w, "on_withdraw", json!({
+        "account": stranger.id(), "token": null, "amount": d.as_yoctonear().to_string() })).await?, "external on_withdraw");
+    assert_eq!(balance(&w, &stranger, None).await?, 0);
+    fails(call(&stranger, &w, "nft_resolve_transfer", json!({
+        "owner_id": stranger.id(), "receiver_id": w.tenant.id(), "token_id": id.to_string() })).await?, "external nft_resolve_transfer");
+    // Withdrawing with nothing credited moves nothing.
+    fails(call(&stranger, &w, "withdraw", json!({ "token": null })).await?, "withdraw with zero balance");
+    println!("auth: private callbacks reject external callers; empty withdraw fails");
+
+    // The arbiter rules; money is conserved exactly.
+    call(&w.arbiter, &w, "resolve",
+        json!({ "lease_id": id.to_string(), "to_landlord": "1000", "note": "depreciated" })).await?.into_result()?;
+    let l = lease(&w, id).await?;
+    let (to_l, to_t): (u128, u128) = (l["to_landlord"].as_str().unwrap().parse()?, l["to_tenant"].as_str().unwrap().parse()?);
+    assert_eq!((to_l, to_t), (2000, d.as_yoctonear() - 2000));
+    assert_eq!(to_l + to_t, d.as_yoctonear());
+    fails(call(&w.arbiter, &w, "resolve",
+        json!({ "lease_id": id.to_string(), "to_landlord": "0", "note": "" })).await?, "second ruling");
+    fails(call(&w.landlord, &w, "finalize", lid.clone()).await?, "finalize after settlement");
+    println!("auth: settled once, landlord 2000 + tenant rest = deposit; no second ruling or finalize");
+    Ok(())
+}
