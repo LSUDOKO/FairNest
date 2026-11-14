@@ -124,7 +124,7 @@ sequenceDiagram
     Note over C: lease.tenant = Leo. Refund, claim answers and vault access all move to Leo.
     Raj->>C: file_claim([cleaning 200, carpet 400] + evidence sha256)
     Leo->>C: dispute([carpet], "8 years old, normal wear")
-    Note over C: cleaning 200 → Raj and remainder 900 → Leo credited now; 400 held
+    Note over C: cleaning 200 → Raj and remainder 900 → Leo credited now, 400 held
     Priya->>C: resolve(to_landlord = 100)
     Note over C: Settled: Raj 300, Leo 1200
     Leo->>C: withdraw(tUSDC) → 1200
