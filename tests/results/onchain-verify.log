@@ -37,8 +37,7 @@ PASS /lease?id=0 returns 200
 PASS vault API without a NEP-413 signature is refused (403)
 
 5. deployed code
-     deployed code_hash ER1avYfhbNf1wB6soD7vg6SedR5XMHx6giBviAgyFmku
-     local wasm hash    ER1avYfhbNf1wB6soD7vg6SedR5XMHx6giBviAgyFmku  (only equal if built with the same toolchain; see AUDIT.md)
+     deployed code_hash E6HYb4s46wqmXy2bMQ2pZP7uyZq58QddpWeTah3PhooN
+PASS local contract/target/near/fairnest.wasm hashes to the deployed code_hash (E6HYb4s46wqmXy2bMQ2pZP7uyZq58QddpWeTah3PhooN)
 
 ALL CHECKS PASSED
-EXIT 0

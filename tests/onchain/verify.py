@@ -113,7 +113,7 @@ print(f"     deployed code_hash {code_hash}")
 wasm = os.path.join(os.path.dirname(__file__), "..", "..", "contract", "target", "near", "fairnest.wasm")
 if os.path.exists(wasm):
     local = b58(hashlib.sha256(open(wasm, "rb").read()).digest())
-    print(f"     local wasm hash    {local}  (only equal if built with the same toolchain; see AUDIT.md)")
+    check(local == code_hash, f"local contract/target/near/fairnest.wasm hashes to the deployed code_hash ({local})")
 else:
     print("     skip: build contract/ with `cargo near build` to compare")
 

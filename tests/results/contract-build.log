@@ -9,7 +9,8 @@ INFO: contract's near-sdk targets protocol version 85; rustc 1.97.1 accepted (bu
 • done
 
 • Generating ABI
- │     Finished `dev` profile [unoptimized] target(s) in 0.15s
+ │    Compiling fairnest v0.1.0 (~/Desktop/hackathon_projects/FairNest/contract)
+ │     Finished `dev` profile [unoptimized] target(s) in 1.51s
 • Extracting ABI...
 • done
 
@@ -17,22 +18,25 @@ INFO: contract's near-sdk targets protocol version 85; rustc 1.97.1 accepted (bu
 • done
 
 • Building contract
- │     Finished `release` profile [optimized] target(s) in 0.19s
+ │    Compiling fairnest v0.1.0 (~/Desktop/hackathon_projects/FairNest/contract)
+ │     Finished `release` profile [optimized] target(s) in 4.48s
 
 Modification timestamps of:
- |    "~/Desktop/hackathon_projects/FairNest/contract/target/wasm32-unknown-unknown/release/fairnest.wasm" = SystemTime { tv_sec: 1794590831, tv_nsec: 748290268 }
- |    "~/Desktop/hackathon_projects/FairNest/contract/target/near/fairnest.wasm" = SystemTime { tv_sec: 1794590835, tv_nsec: 886466862 }
+ |    "~/Desktop/hackathon_projects/FairNest/contract/target/wasm32-unknown-unknown/release/fairnest.wasm" = SystemTime { tv_sec: 1794671017, tv_nsec: 191034785 }
+ |    "~/Desktop/hackathon_projects/FairNest/contract/target/near/fairnest.wasm" = SystemTime { tv_sec: 1794670951, tv_nsec: 810389444 }
 
-• Skipped running wasm-opt as final target exists and is newer than wasm produced by cargo
+• Running an optimize for size post-step with wasm-opt --enable-nontrapping-float-to-int --enable-bulk-memory...
+    Finished wasm-opt -O in 1s 133ms
+• done
 
 ✓ Contract successfully built! (in CARGO_NEAR_BUILD_ENVIRONMENT=host)
      -                Binary: ~/Desktop/hackathon_projects/FairNest/contract/target/near/fairnest.wasm
-     -                  Size: 256.2 KB (256234 bytes)
-     - SHA-256 checksum hex : c74e87e1d305a45c7b05bc1c112e5574c645648ee0f5c159d0473bdcf332ccf2
-     - SHA-256 checksum bs58: ER1avYfhbNf1wB6soD7vg6SedR5XMHx6giBviAgyFmku
+     -                  Size: 257.3 KB (257349 bytes)
+     - SHA-256 checksum hex : c2828a87ff0f2cde27905d3c14fa2a2dd5a952c71a9cae550779aa301068a459
+     - SHA-256 checksum bs58: E6HYb4s46wqmXy2bMQ2pZP7uyZq58QddpWeTah3PhooN
      -                   ABI: ~/Desktop/hackathon_projects/FairNest/contract/target/near/fairnest_abi.json
      -          Embedded ABI: ~/Desktop/hackathon_projects/FairNest/contract/target/near/fairnest_abi.zst
-    Finished cargo near build in 1s
+    Finished cargo near build in 8s
 Here is the console command if you ever need to re-run it again:
 cargo near build non-reproducible-wasm
 EXIT 0

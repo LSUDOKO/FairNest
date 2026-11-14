@@ -1,34 +1,3 @@
-    Checking near-jsonrpc-client v0.23.0
     Checking fairnest v0.1.0 (~/Desktop/hackathon_projects/FairNest/contract)
-    Checking near-workspaces v0.24.0
-warning: doc list item without indentation
-  --> src/lib.rs:10:5
-   |
-10 | //! Payouts are pull-based: settlement credits `balances`, `withdraw` moves the tokens and
-   |     ^
-   |
-   = help: if this is supposed to be its own paragraph, add a blank line
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_lazy_continuation
-   = note: `#[warn(clippy::doc_lazy_continuation)]` on by default
-help: indent this line
-   |
-10 | //!     Payouts are pull-based: settlement credits `balances`, `withdraw` moves the tokens and
-   |     ++++
-
-warning: doc list item without indentation
-  --> src/lib.rs:11:5
-   |
-11 | //! restores the balance if the transfer fails, so funds can never get stuck in a failed promise.
-   |     ^
-   |
-   = help: if this is supposed to be its own paragraph, add a blank line
-   = help: for further information visit https://rust-lang.github.io/rust-clippy/rust-1.97.0/index.html#doc_lazy_continuation
-help: indent this line
-   |
-11 | //!     restores the balance if the transfer fails, so funds can never get stuck in a failed promise.
-   |     ++++
-
-warning: `fairnest` (lib) generated 2 warnings
-warning: `fairnest` (lib test) generated 2 warnings (2 duplicates)
-    Finished `dev` profile [unoptimized + debuginfo] target(s) in 3.07s
+    Finished `dev` profile [unoptimized + debuginfo] target(s) in 2.83s
 EXIT 0

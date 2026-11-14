@@ -7,6 +7,7 @@
 //!   * landlord files no claim within `claim_window` after lease end -> full refund to tenant
 //!   * tenant does not answer within `response_window`               -> claim stands
 //!   * arbiter does not rule within `arbiter_window`                 -> disputed sum to tenant
+//!
 //! Payouts are pull-based: settlement credits `balances`, `withdraw` moves the tokens and
 //! restores the balance if the transfer fails, so funds can never get stuck in a failed promise.
 //!
@@ -32,6 +33,9 @@ pub const MAX_TEXT: usize = 300;
 pub const MAX_WINDOW: u64 = 365 * 24 * 3600;
 /// Lease end must be within 10 years, which keeps every deadline sum far from u64 overflow.
 pub const MAX_LEASE_END: u64 = 10 * 365 * 24 * 3600;
+/// Hand-over approvals stop once a lease has this many history events, so nobody can grow a
+/// record past what its flat storage deposit paid for (AUDIT.md F-1).
+pub const MAX_HISTORY: usize = 16;
 const GAS_FT_TRANSFER: Gas = Gas::from_tgas(10);
 const GAS_CALLBACK: Gas = Gas::from_tgas(10);
 
@@ -224,6 +228,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         require!(caller == lease.landlord, "only landlord");
         require!(lease.status == Status::Funded, "lease is not in Funded state");
+        require!(lease.history.len() < MAX_HISTORY, "too many hand-over events on this lease");
         if let Some(s) = &successor {
             require!(
                 *s != lease.landlord && *s != lease.arbiter && *s != lease.tenant,
@@ -300,6 +305,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         require!(caller == lease.tenant, "only tenant");
         require!(lease.status == Status::Claimed, "no open claim");
+        require!(now() <= lease.stage_at.0 + lease.response_window.0, "response window has passed");
         let lease = settle_claim(lease, "accepted", &caller);
         self.credit_settlement(&lease);
     }
@@ -312,6 +318,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         require!(caller == lease.tenant, "only tenant");
         require!(lease.status == Status::Claimed, "no open claim");
+        require!(now() <= lease.stage_at.0 + lease.response_window.0, "response window has passed");
         let mut idx = lines;
         idx.sort_unstable();
         idx.dedup();
@@ -345,6 +352,7 @@ impl Contract {
         let lease = self.lease_mut(lease_id);
         require!(caller == lease.arbiter, "only arbiter");
         require!(lease.status == Status::Disputed, "no open dispute");
+        require!(now() <= lease.stage_at.0 + lease.arbiter_window.0, "arbiter window has passed");
         let disputed = disputed_sum(lease);
         require!(to_landlord.0 <= disputed, "cannot award more than the disputed sum");
         let (token, landlord, tenant) =
@@ -442,7 +450,7 @@ impl Contract {
     // ---------- views ----------
 
     pub fn get_lease(&self, lease_id: U64) -> Option<Lease> {
-        self.leases.get(lease_id.0 as u32).cloned()
+        u32::try_from(lease_id.0).ok().and_then(|i| self.leases.get(i)).cloned()
     }
 
     /// Every lease an account ever took part in, including leases it held as tenant and passed on.
@@ -464,7 +472,8 @@ impl Contract {
     // ---------- internal ----------
 
     fn lease_mut(&mut self, id: U64) -> &mut Lease {
-        self.leases.get_mut(id.0 as u32).expect("lease not found")
+        let i = u32::try_from(id.0).expect("lease not found");
+        self.leases.get_mut(i).expect("lease not found")
     }
 
     fn index(&mut self, who: &AccountId, id: u64) {

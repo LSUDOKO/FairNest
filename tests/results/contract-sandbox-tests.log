@@ -1,39 +1,5 @@
-   Compiling aws-lc-sys v0.47.0
-   Compiling ring v0.17.14
-   Compiling secp256k1-sys v0.8.2
-   Compiling zstd-sys v2.1.2+zstd.1.5.7
-   Compiling openssl-sys v0.9.118
-   Compiling blst v0.3.17
-   Compiling openssl v0.10.82
-   Compiling native-tls v0.2.18
-   Compiling rustls v0.23.46
-   Compiling secp256k1 v0.27.0
-   Compiling rustls-webpki v0.103.16
-   Compiling zstd-safe v7.4.0
-   Compiling zstd v0.13.4
-   Compiling tokio-native-tls v0.3.1
-   Compiling hyper-tls v0.6.0
-   Compiling reqwest v0.12.28
-   Compiling ureq v3.5.1
-   Compiling near-sandbox v0.4.0
-   Compiling near-workspaces v0.24.0
-   Compiling aws-lc-rs v1.19.0
-   Compiling near-crypto v0.38.0
-   Compiling near-primitives v0.38.0
-   Compiling near-sdk-core v4.4.2
-   Compiling near-vm-runner v0.38.0
-   Compiling near-global-contracts v0.3.3
-   Compiling tokio-rustls v0.26.6
-   Compiling rustls-platform-verifier v0.7.1
-   Compiling hyper-rustls v0.27.10
-   Compiling reqwest v0.13.5
-   Compiling near-chain-configs v0.38.0
-   Compiling near-indexer-primitives v0.38.0
-   Compiling near-sdk v5.30.1
-   Compiling near-jsonrpc-primitives v0.38.0
    Compiling fairnest v0.1.0 (~/Desktop/hackathon_projects/FairNest/contract)
-   Compiling near-jsonrpc-client v0.23.0
-    Finished `test` profile [unoptimized + debuginfo] target(s) in 1m 01s
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 6.50s
      Running unittests src/lib.rs (target/debug/deps/fairnest-81179c0aadfd4b8f)
 
 running 1 test
@@ -44,40 +10,42 @@ test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; fini
      Running tests/flows.rs (target/debug/deps/flows-88fb644dc9e1c322)
 
 running 6 tests
-test guards_reject_bad_input ... guards: wrong funder, wrong amount and wrong token all rejected
-guards: early claim and over-deposit claim rejected
-guards: deadline windows above 365 days rejected
-ok
-test happy_path_native_near ... 1. landlord created lease 0 for a 5 NEAR deposit
+1. landlord created lease 0 for a 5 NEAR deposit
 2. tenant funded it, status = "Funded"
+1. unfunded lease has no NFT yet
 3. landlord filed a 1.5 NEAR claim with photo evidence
-4. tenant accepted: landlord credited 1.5 NEAR, tenant 3.5 NEAR
-5. tenant withdrew 3.5 NEAR to their wallet
-ok
-test lease_nft_moves_the_deposit_and_every_tenant_right ... 1. unfunded lease has no NFT yet
 2. funding minted lease NFT #0 to the tenant (image: Deposit locked)
+4. tenant accepted: landlord credited 1.5 NEAR, tenant 3.5 NEAR
+a) landlord silent past claim window -> tenant refunded in full
+nft_transfer_call to an account with no receiver contract: token returned to the tenant
+test transfer_call_to_a_non_contract_returns_the_token ... ok
+5. tenant withdrew 3.5 NEAR to their wallet
+test happy_path_native_near ... ok
+1. landlord created lease 0 for 1000 tUSDC
 3. blocked: no approval, non-holder, unapproved receiver, missing 1 yocto
-4. tenant handed the lease to the approved replacement; the old tenant holds nothing
-5. after move-out claim: old tenant can neither accept nor dispute
-6. mid-payout: 2.5 NEAR already credited to the current holder, token frozen while the arbiter decides
-7. settled: replacement tenant owed 3.25 NEAR, old tenant 0; NFT image now reads Closed
-ok
-test partial_dispute_with_token_and_arbiter ... 1. landlord created lease 0 for 1000 tUSDC
 2. tenant funded it with ft_transfer_call
+4. tenant handed the lease to the approved replacement; the old tenant holds nothing
 3. landlord claimed 100 (paint) + 300 (carpet)
 4. tenant disputed the carpet only: paint 100 -> landlord, 600 -> tenant right away, 300 held
+guards: wrong funder, wrong amount and wrong token all rejected
 5. arbiter split the 300: landlord 200 total, tenant 800 total
+5. after move-out claim: old tenant can neither accept nor dispute
 6. landlord withdraw failed (not registered on token), balance restored
+guards: early claim and over-deposit claim rejected
+6. mid-payout: 2.5 NEAR already credited to the current holder, token frozen while the arbiter decides
 7. after storage_deposit, landlord withdrew 200 tUSDC
-ok
-test timeouts_protect_both_sides ... a) landlord silent past claim window -> tenant refunded in full
-b) tenant silent past response window -> claim stands
-c) arbiter silent past arbiter window -> disputed sum to tenant
-ok
-test transfer_call_to_a_non_contract_returns_the_token ... nft_transfer_call to an account with no receiver contract: token returned to the tenant
-ok
+test partial_dispute_with_token_and_arbiter ... ok
+guards: deadline windows above 365 days rejected
+7. settled: replacement tenant owed 3.25 NEAR, old tenant 0; NFT image now reads Closed
+test lease_nft_moves_the_deposit_and_every_tenant_right ... ok
+guards: history capped at 16 events, aliased lease and token ids rejected
+test guards_reject_bad_input ... ok
+b) tenant silent past response window -> claim stands (late dispute and accept rejected)
+test timeouts_protect_both_sides has been running for over 60 seconds
+c) arbiter silent past arbiter window -> disputed sum to tenant (late ruling rejected)
+test timeouts_protect_both_sides ... ok
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 91.16s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 60.24s
 
    Doc-tests fairnest
 
@@ -85,4 +53,3 @@ running 0 tests
 
 test result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.00s
 
-EXIT 0

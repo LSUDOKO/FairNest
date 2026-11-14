@@ -202,9 +202,13 @@ async fn timeouts_protect_both_sides() -> R {
         json!({ "lease_id": b.to_string(), "lines": [line("Oven", 1000)] })).await?.into_result()?;
     // b uses a 600s response window; fast-forward sandbox time past it.
     wait(&w, 600).await?;
+    let r = call(&w.tenant, &w, "dispute",
+        json!({ "lease_id": b.to_string(), "lines": [0], "reason": "too late" })).await?;
+    assert!(r.is_failure(), "dispute after the response window must fail");
+    assert!(call(&w.tenant, &w, "accept", json!({ "lease_id": b.to_string() })).await?.is_failure());
     call(&w.arbiter, &w, "finalize", json!({ "lease_id": b.to_string() })).await?.into_result()?;
     assert_eq!(balance(&w, &w.landlord, None).await?, 1000);
-    println!("b) tenant silent past response window -> claim stands");
+    println!("b) tenant silent past response window -> claim stands (late dispute and accept rejected)");
 
     // c) arbiter never rules -> disputed sum to tenant
     let c = create(&w, None, d.as_yoctonear(), now_secs(&w).await?, win).await?;
@@ -214,11 +218,14 @@ async fn timeouts_protect_both_sides() -> R {
     call(&w.tenant, &w, "dispute",
         json!({ "lease_id": c.to_string(), "lines": [0], "reason": "not me" })).await?.into_result()?;
     wait(&w, win).await?;
+    let r = call(&w.arbiter, &w, "resolve",
+        json!({ "lease_id": c.to_string(), "to_landlord": "500", "note": "too late" })).await?;
+    assert!(r.is_failure(), "ruling after the arbiter window must fail");
     call(&w.landlord, &w, "finalize", json!({ "lease_id": c.to_string() })).await?.into_result()?;
     let l = lease(&w, c).await?;
     assert_eq!(l["to_tenant"], d.as_yoctonear().to_string());
     assert_eq!(l["history"].as_array().unwrap().last().unwrap()["kind"], "timeout_arbiter_silent");
-    println!("c) arbiter silent past arbiter window -> disputed sum to tenant");
+    println!("c) arbiter silent past arbiter window -> disputed sum to tenant (late ruling rejected)");
     Ok(())
 }
 
@@ -271,6 +278,24 @@ async fn guards_reject_bad_input() -> R {
         .deposit(NearToken::from_millinear(100)).transact().await?;
     assert!(r.is_failure(), "unbounded window must be rejected");
     println!("guards: deadline windows above 365 days rejected");
+
+    // A landlord cannot grow a lease's history without bound by re-approving (AUDIT.md F-1).
+    let mut ok = 0;
+    for _ in 0..20 {
+        let r = call(&w.landlord, &w, "approve_successor",
+            json!({ "lease_id": future.to_string(), "successor": null })).await?;
+        if r.is_failure() { break; }
+        ok += 1;
+    }
+    assert_eq!(ok, 14, "approvals stop at 16 history events (created + funded + 14)");
+    assert_eq!(lease(&w, future).await?["history"].as_array().unwrap().len(), 16);
+    // Aliased ids ("05", 2^32 + n) do not reach a real lease (AUDIT.md F-5).
+    let v: Value = w.escrow.view("nft_token").args_json(json!({ "token_id": format!("0{future}") })).await?.json()?;
+    assert!(v.is_null(), "zero-padded token id must not resolve");
+    let alias = (1u64 << 32) + future;
+    let v: Value = w.escrow.view("get_lease").args_json(json!({ "lease_id": alias.to_string() })).await?.json()?;
+    assert!(v.is_null(), "lease id above u32 must not wrap");
+    println!("guards: history capped at 16 events, aliased lease and token ids rejected");
     Ok(())
 }
 

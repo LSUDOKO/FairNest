@@ -64,7 +64,9 @@ fn minted(lease: &Lease) -> bool {
 }
 
 fn parse_id(token_id: &str) -> U64 {
-    U64(token_id.parse().expect("token_id must be a lease id"))
+    let id: u64 = token_id.parse().expect("token_id must be a lease id");
+    require!(id.to_string() == token_id, "token_id must be a lease id"); // no "05" / "+5" aliases (AUDIT.md F-5)
+    U64(id)
 }
 
 #[near]
@@ -149,8 +151,11 @@ impl Contract {
     }
 
     pub fn nft_token(&self, token_id: String) -> Option<Token> {
-        let id: u64 = token_id.parse().ok()?;
-        let lease = self.leases.get(id as u32)?;
+        let id: u32 = token_id.parse().ok()?;
+        if id.to_string() != token_id {
+            return None;
+        }
+        let lease = self.leases.get(id)?;
         minted(lease).then(|| token(lease))
     }
 
