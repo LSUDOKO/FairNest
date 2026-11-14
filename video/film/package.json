@@ -1,0 +1,8 @@
+{
+  "name": "fairnest-film",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts FairNest out/fairnest.mp4 --codec=h264 --crf=16 --concurrency=6"
+  }
+}
