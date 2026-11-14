@@ -1,11 +1,14 @@
 <p align="center">
-  <img src="docs/assets/banner.png" alt="FairNest: your rent deposit, held by a NEAR contract, not your landlord" width="100%">
+  <img src="docs/assets/logo-wordmark.png" width="320" alt="FairNest">
 </p>
 
-<p align="center">
-  <img src="docs/assets/logo.svg" width="44" alt="FairNest logo"><br>
-  <b>Rent security-deposit escrow on NEAR, where the deposit is an NFT that moves with the tenant.</b>
-</p>
+## About
+
+Rent security-deposit escrow on NEAR. The deposit is held by a smart contract, not the landlord, and is
+itself a NEP-171 NFT that moves with the tenant. Deductions are itemised with evidence, the tenant can
+dispute them line by line, a neutral arbiter rules, and deadlines mean nobody can sit on the money.
+
+**Tags:** `near` · `nep-171` · `nep-141` · `nep-413` · `nft` · `escrow` · `stablecoin` · `rental` · `security-deposit` · `proptech` · `rust` · `nextjs` · `cloudflare-workers`
 
 <p align="center">
   <a href="https://fairnest.adoranto737.workers.dev"><img alt="Live app" src="https://img.shields.io/badge/live%20app-fairnest.adoranto737.workers.dev-F3DF1D?style=flat-square&labelColor=0B0A06"></a>
@@ -14,6 +17,10 @@
   <a href="tests/results/onchain-verify.log"><img alt="On-chain checks" src="https://img.shields.io/badge/on--chain%20checks-29%2F29-9BE8B4?style=flat-square&labelColor=0B0A06"></a>
   <a href="AUDIT.md"><img alt="Security review" src="https://img.shields.io/badge/security%20review-AUDIT.md-F0EEE4?style=flat-square&labelColor=0B0A06"></a>
   <a href="LICENSE"><img alt="MIT" src="https://img.shields.io/badge/license-MIT-F0EEE4?style=flat-square&labelColor=0B0A06"></a>
+</p>
+
+<p align="center">
+  <img src="docs/assets/banner.png" alt="FairNest: your rent deposit, held by a NEAR contract, not your landlord" width="100%">
 </p>
 
 <p align="center">
@@ -28,11 +35,6 @@
 </p>
 
 ---
-
-The tenant's deposit sits in a NEAR smart contract instead of the landlord's bank account. At move-out the
-landlord itemises deductions with evidence. The tenant accepts or disputes them line by line, and a
-neutral arbiter rules only on the disputed lines. Deadlines in the contract stop either side from sitting
-on the money.
 
 The deposit itself is a **NEP-171 NFT**. Whoever holds the token is the tenant: they are owed the refund,
 are the only account that can answer a claim, and are the only tenant who can open the lease's private
