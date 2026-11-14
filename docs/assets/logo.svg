@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 48 48" fill="none">
+  <title>FairNest</title>
+  <rect x="3" y="17" width="26" height="10" rx="5" transform="rotate(-38 3 17)" fill="#F3DF1D"/>
+  <rect x="22.5" y="1" width="26" height="10" rx="5" transform="rotate(38 22.5 1)" fill="#F3DF1D"/>
+  <circle cx="24" cy="36" r="7" fill="#F3DF1D"/>
+</svg>

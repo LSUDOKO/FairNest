@@ -1,0 +1,44 @@
+RPC https://archival-rpc.testnet.fastnear.com
+
+1. lease 0 state
+PASS status is Settled (Settled)
+PASS deposit was 1500 tUSDC
+PASS deposit token is tUSDC (NEP-141)
+PASS claim lines 200 cleaning + 400 carpet
+PASS only the carpet line was disputed
+PASS landlord got 300 (200 undisputed + 100 awarded)
+PASS tenant got 1200
+PASS payouts add up to the deposit exactly
+PASS tenant of record is the replacement (NFT holder)
+PASS history: created > funded > successor_approved > transferred > claimed > disputed > resolved
+
+2. lease NFT (NEP-171 / 177)
+PASS nft_token(0).owner_id = fairnest-tenant2.testnet
+PASS token image is an SVG drawn by the contract
+PASS nft_metadata spec nft-1.0.0
+PASS nft_total_supply >= 1
+PASS token 0 listed for the new holder
+PASS token 0 no longer listed for the old tenant
+
+3. demo transactions on-chain
+PASS create_lease 1500 tUSDC: 6VQemHAy... by fairnest-landlord.testnet
+PASS fund (ft_transfer_call) + NFT mint: A6iguWyA... by fairnest-tenant.testnet
+PASS approve_successor: GJdf6DsZ... by fairnest-landlord.testnet
+PASS nft_transfer to replacement: C6U749WD... by fairnest-tenant.testnet
+PASS file_claim 200 + 400: 7whGQPhF... by fairnest-landlord.testnet
+PASS dispute carpet line: FUdqxMTE... by fairnest-tenant2.testnet
+PASS resolve 100 to landlord: 6R1YjfpT... by fairnest-arbiter.testnet
+PASS withdraw 1200 tUSDC: Ce7GGLH1... by fairnest-tenant2.testnet
+PASS withdraw 300 tUSDC: HPxB6rfb... by fairnest-landlord.testnet
+
+4. hosted app + vault gate
+PASS https://fairnest.adoranto737.workers.dev/ returns 200
+PASS /lease?id=0 returns 200
+PASS vault API without a NEP-413 signature is refused (403)
+
+5. deployed code
+     deployed code_hash ER1avYfhbNf1wB6soD7vg6SedR5XMHx6giBviAgyFmku
+     local wasm hash    ER1avYfhbNf1wB6soD7vg6SedR5XMHx6giBviAgyFmku  (only equal if built with the same toolchain; see AUDIT.md)
+
+ALL CHECKS PASSED
+EXIT 0

@@ -1,0 +1,35 @@
+
+> fairnest-frontend@1.0.0 build
+> next build
+
+▲ Next.js 16.4.5 (Turbopack)
+⚠ Warning: Next.js ignored package-lock.json in ~/Desktop/hackathon_projects because it is outside the current Git repository (~/Desktop/hackathon_projects/FairNest).
+ To use this directory, set `turbopack.root` in your Next.js config.
+
+✓ Running next.config.js took 22ms
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 400ms
+  Running TypeScript ...
+  Finished TypeScript in 1986ms ...
+  Collecting page data using 10 workers ...
+  Generating static pages using 10 workers (0/9) ...
+  Generating static pages using 10 workers (2/9) 
+  Generating static pages using 10 workers (4/9) 
+  Generating static pages using 10 workers (6/9) 
+✓ Generating static pages using 10 workers (9/9) in 945ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ○ /
+├ ○ /_not-found
+├ ○ /app
+├ ○ /lease
+├ ○ /new
+├ ○ /profile
+└ ○ /vault
+
+
+○  (Static)  prerendered as static content
+
+EXIT 0

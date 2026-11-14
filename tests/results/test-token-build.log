@@ -1,0 +1,38 @@
+• Collecting cargo project metadata...
+• done
+
+• Checking rustc version...
+INFO: contract's near-sdk targets protocol version 85; rustc 1.97.1 accepted (bulk-memory opcodes supported by nearcore VM)
+• done
+
+• Checking the host environment...
+• done
+
+• Generating ABI
+ │     Finished `dev` profile [unoptimized] target(s) in 0.08s
+• Extracting ABI...
+• done
+
+• Compressing ABI to be embedded..
+• done
+
+• Building contract
+ │     Finished `release` profile [optimized] target(s) in 0.07s
+
+Modification timestamps of:
+ |    "~/Desktop/hackathon_projects/FairNest/test-token/target/wasm32-unknown-unknown/release/test_token.wasm" = SystemTime { tv_sec: 1793992477, tv_nsec: 553919411 }
+ |    "~/Desktop/hackathon_projects/FairNest/test-token/target/near/test_token.wasm" = SystemTime { tv_sec: 1793992478, tv_nsec: 612960462 }
+
+• Skipped running wasm-opt as final target exists and is newer than wasm produced by cargo
+
+✓ Contract successfully built! (in CARGO_NEAR_BUILD_ENVIRONMENT=host)
+     -                Binary: ~/Desktop/hackathon_projects/FairNest/test-token/target/near/test_token.wasm
+     -                  Size: 145.6 KB (145633 bytes)
+     - SHA-256 checksum hex : 7436a7696b5616139e4d2b7ffc5a3e19fea1c52bf7548d200ec0a8e39af46996
+     - SHA-256 checksum bs58: 8pedVYATiXcticpkHQWb2voadPZ3uSBTNDNq8BTL4vUV
+     -                   ABI: ~/Desktop/hackathon_projects/FairNest/test-token/target/near/test_token_abi.json
+     -          Embedded ABI: ~/Desktop/hackathon_projects/FairNest/test-token/target/near/test_token_abi.zst
+    Finished cargo near build in 0s
+Here is the console command if you ever need to re-run it again:
+cargo near build non-reproducible-wasm
+EXIT 0
